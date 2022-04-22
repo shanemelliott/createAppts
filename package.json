@@ -1,0 +1,20 @@
+{
+  "name": "createappts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "shane.elliott@va.gov",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "child_process": "^1.0.2",
+    "express": "^4.17.1",
+    "got": "^11.8.2",
+    "http": "^0.0.1-security",
+    "jsonwebtoken": "^8.5.1",
+    "path": "^0.12.7"
+  }
+}
