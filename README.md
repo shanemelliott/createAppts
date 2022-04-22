@@ -1,6 +1,6 @@
 # Create Clinics and Appointments in VistA
 
-This repo containes some scripts for creating VistA Clinics and appointments in VistA. 
+This repo containes some scripts for creating VistA Clinics and appointments in VistA. This makes use of vista-api (https://github.com/department-of-veterans-affairs/octo-vista-api)
 
 The basics are:
 
