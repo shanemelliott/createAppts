@@ -322,16 +322,17 @@ stdin.addListener("data", function (d) {
     if (d.toString().trim() === 'c') {
       const doConfig = async () => {
         var obj=config.config.default
-        ///todo:-no looping of clinic #. 
         var clinics=config.config.clinics
         console.log(clinics.length)
         for (var i=0;i<clinics.length;i++){
-          obj[0]=config.config.base+clinics[i][0]+'/'+config.config.each
-          obj[1]=clinics[i][1]+"/"+config.config.each
-          obj[2]=clinics[i][2]+" "+config.config.each
-          obj[9]=clinics[i][3]
-          await upload(obj)
-         }
+          for(var e=config.config.start;e<config.config.start+config.config.each;i++){
+            obj[0]=config.config.base+clinics[i][0]+'/'+e
+            obj[1]=clinics[i][1]+"/"+e
+            obj[2]=clinics[i][2]+" "+e
+            obj[9]=clinics[i][3]
+            await upload(obj)
+          }
+        }
        }
       doConfig()
     }
