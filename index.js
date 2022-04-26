@@ -5,6 +5,15 @@ var stdin = process.openStdin();
 //Not sure why here as all internal but skipping for now, research later.
 process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
 //Functions...
+
+function isJsonString(str) {
+  try {
+      JSON.parse(str);
+  } catch (e) {
+      return false;
+  }
+  return true;
+}
 function upload(objt){
  return new Promise(function(resolve,reject){
   console.log('base',objt)
@@ -273,6 +282,7 @@ function listClinics(){
       "duz": config.duz
      }
      }).then(function(data){
+     
          got.post(config.url+'/api/v1/xrpc/xcte',
          {headers:{'authorization':'Bearer '+JSON.parse(data.body).payload.token},
          json:{
@@ -315,9 +325,77 @@ function listClinics(){
  
   }
 
+function getAppointments(ien){
+ 
+  return new Promise(function(resolve,reject){
+    got.post(config.url+'/api/auth/token',
+     {json:{
+      "key":config.key,
+      "stationNo": config.stationNo,
+      "duz": config.duz
+     }
+     }).then(function(data){
+    
+         got.post(config.url+'/api/v1/xrpc/xcte',
+         {headers:{'authorization':'Bearer '+JSON.parse(data.body).payload.token},
+         json:{
+           "context" : "SDECRPC",
+           "rpc" : "SDES GET APPTS BY CLINIC",
+           "jsonResult" : "FALSE",
+           "parameters" : [ien,"2022/04/20@00:00","2022/04/21@00:00"]
+         }}).then(function(data){
+            var jsonData = JSON.parse(data.body);
+            if(isJsonString(jsonData.payload)){
+              var appts=JSON.parse(jsonData.payload);
+            }else{
+            console.log(jsonData)
+              appts=''
+            }
+            
+         // console.log(appts)
+            resolve(appts)
+         }).catch(function(err){
+           console.log(err)})
+     }).catch(function (error) {
+      console.log('error') 
+      console.log(error);
+   });
+  })
+  }
+  function getAppointmentSteps(ien){
+ 
+    return new Promise(function(resolve,reject){
+      got.post(config.url+'/api/auth/token',
+       {json:{
+        "key":config.key,
+        "stationNo": config.stationNo,
+        "duz": config.duz
+       }
+       }).then(function(data){
+    
+           got.post(config.url+'/api/v1/xrpc/xcte',
+           {headers:{'authorization':'Bearer '+JSON.parse(data.body).payload.token},
+           json:{
+             "context" : "SDECRPC",
+             "rpc" : "SDES GET APPT CHECK-IN STEPS",
+             "jsonResult" : "FALSE",
+             "parameters" : [ien]
+           }}).then(function(data){
+              var jsonData = JSON.parse(data.body);
+              var apptSteps=JSON.parse(jsonData.payload);
+             
+              resolve(apptSteps)
+           }).catch(function(err){
+             console.log(err)})
+       }).catch(function (error) {
+        console.log('error') 
+        console.log(error);
+     });
+    })
+    }
 
 //main
-console.log('c-create clinics;l-list clinics,a-check avialability,m-make appts.,g-makegrid')
+console.log('c-create clinics;l-list clinics,a-check avialability,m-make appts.,g-makegrid,b-check bay pines')
 stdin.addListener("data", function (d) {
     if (d.toString().trim() === 'c') {
       const doConfig = async () => {
@@ -416,6 +494,37 @@ stdin.addListener("data", function (d) {
     if (d.toString().trim() === 'l') {
       listClinics()
     }
+    if (d.toString().trim()==='b'){
+      //quick add to check bay pines prod for echeckins. 
+      let count=0
+      let apptCount=0
+      const doSteps = async () => {
+        var iens=config.config.bayPinesIEN
+        console.log(iens[0])
+        for (var i=0;i<iens.length;i++){
+         let clinicAppts = await getAppointments(iens[i])
+         if(clinicAppts.Appt){
+          for (let i = 0; i < clinicAppts.Appt.length; i++) {
+            console.log(clinicAppts.Appt[i].AppointmentIEN)
+            apptCount++
+            if(clinicAppts.Appt[i].CheckInSteps!==''){
+              console.log(clinicAppts.Appt[i].DFN)
+              console.log(clinicAppts.Appt[i].AppointmentIEN)
+              console.log(clinicAppts.Appt[i].CheckInSteps)
+              count++
+              console.log(count)
+            }else{
+              console.log('no steps','count:'+count,'ApptCount:'+apptCount)
+            }
+           }
+         }else{
+           console.log('no appts','count:'+count,'ApptCount:'+apptCount)
+         }
+        }
+      }
+      doSteps()
+    }
+    
   })
 
 
