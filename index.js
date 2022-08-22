@@ -1,5 +1,7 @@
 const got = require('got');
 const config = require('./env.js');
+
+const ObjectsToCsv = require('objects-to-csv')
 var stdin = process.openStdin();
 //skip cert validation because VA does ssl packet inspection. 
 //Not sure why here as all internal but skipping for now, research later.
@@ -152,6 +154,61 @@ function getRandName(letter,number){
 
           }) 
 }
+
+function getRandNames(letter,number){
+
+  return new Promise(function(resolve,reject){
+ 
+  got.post(config.url+'/api/auth/token',
+          {json:{
+            "key":config.key,
+            "stationNo": config.stationNo,
+            "duz": config.duz
+          }
+          }).then(function(data){
+              got.post(config.url+'/api/v1/xrpc/xcte',
+              {headers:{'authorization':'Bearer '+JSON.parse(data.body).payload.token},
+              json:{
+                "context" : "SDECRPC",
+                "rpc" : "SDEC GET PATIENT DEMOG",
+                "jsonResult" : "false",
+                "parameters" : [ letter,
+                  number,
+                ""]
+               
+              }}).then(function(data){
+                var jsonData = JSON.parse(data.body);
+               var resp = jsonData.payload
+               if (resp){
+               var respArr = resp.split(String.fromCharCode(30));
+               var header = respArr[0].split("^");
+               header = header.map(element=>element.substr(6))
+               respArr.shift()
+               var dataArr =[]
+               respArr.forEach(function(e){
+                   var rec = e.split("^")
+                   dataArr.push(rec)
+               })
+               var list = []
+               dataArr.forEach(function(e,i){
+                   var rec ={}
+                   e.forEach(function(c,f){
+                     rec[header[f]]=c
+                   })
+                   list.push(rec)
+               })
+                console.log('length',list.length)
+                
+                  resolve(list)
+                
+               }
+             })
+            })
+
+
+
+          }) 
+}
 function uploadGrid(ien,day){
 
   return new Promise(function(resolve,reject){
@@ -203,7 +260,8 @@ function makeAppt(ien,clinicIen,resourceIen,date,start,end){
                 "context" : "SDECRPC",
                 "rpc" : "SDEC APPADD",
                 "jsonResult" : "false",
-                "parameters" : [date+"@"+start,
+                "parameters" : [
+                  date+"@"+start,
                 date+"@"+end,
                   ien,
                   resourceIen,
@@ -282,8 +340,7 @@ function listClinics(){
       "duz": config.duz
      }
      }).then(function(data){
-     
-         got.post(config.url+'/api/v1/xrpc/xcte',
+            got.post(config.url+'/api/v1/xrpc/xcte',
          {headers:{'authorization':'Bearer '+JSON.parse(data.body).payload.token},
          json:{
            "context" : "SDECRPC",
@@ -441,58 +498,155 @@ stdin.addListener("data", function (d) {
     }
     doAvail()
     }
+
+    if (d.toString().trim() === 'x') {
+      var slots=config.config.slots
+      let slotNumber = Math.floor(Math.random() * 12-1) + 1
+      console.log(number)
+    }
+
     if (d.toString().trim() === 'm') {
-    let apptDays=31
+    
+
+     
+    var appointmentiens=[]
+    let apptDays=1
     const doAppts = async () => {
       //get clinics
+      var apptsLength=3000
+      for (var e=0;e<apptsLength;e++){
       var clinics =  await getClinics()
-      console.log(clinics.length)
+      console.log('clinics:',clinics.length)
       //ToDo: Get Clinics from VistA
       //var iens=config.config.clinicien
-      var iens=config.config.deviens
-      for (var i=0;i<iens.length;i++){
-        //get resource id
-        var result  = clinics.filter(function(o){return o.HOSPITAL_LOCATION_ID == iens[i];} );
-        //get random letter
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        let letter = characters.charAt(Math.floor(Math.random() * characters.length))
-        //get random number between 1 and 200
-        let number = Math.floor(Math.random() * 20) + 1
-        console.log(letter,number)
-        //get random name of patient based on random letter and number
-        let name = await getRandName(letter,number)
-        if(name){
-          console.log(name)
-          if(name.IEN){
-            //get date/time
-            //Todo: Random Date Time so not sequential
-            for (var e=0;e<apptDays;e++){
-            var date = new Date();
-            // add 1 day
-            if(e>0){
-              date.setDate(date.getDate() + e);
-            }
-            //for now, date/time fixed.
-            //To do: Loop through slots and fill them.  I have been just manually changing it 
-            const start="14:30"
-            const end="15:00"
-            var apptResult =  await makeAppt(name.IEN,result[0].HOSPITAL_LOCATION_ID,result[0].RESOURCEID,date.toLocaleDateString("en-US"),start,end)
-            //If already booked a this time exit.
-            //Todo: Pick a new patient. 
-            if(apptResult.payload.indexOf("already scheduled")!==-1){
-              console.log("duplicate appt aborting")
-              break
+      var iens=config.config.clinicien
+      for (var i=27;i<iens.length;i++){
+        var slots=config.config.slots
+     
+             
+
+              //get resource id
+              var result  = clinics.filter(function(o){return o.HOSPITAL_LOCATION_ID == iens[i];} );
+              //console.log(result)
+              //get random letter
+              const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+              let letter = characters.charAt(Math.floor(Math.random() * characters.length))
+              //get random number between 1 and 200
+              let number = Math.floor(Math.random() * 20) + 1
+              console.log(letter,number)
+              //get random name of patient based on random letter and number
+              let name = await getRandName(letter,number)
+              if(name){
+                //console.log(name)
+                if(name.IEN){
+                  //get date/time
+                  //Todo: Random Date Time so not sequential
+                  for (var e=0;e<apptDays;e++){
+                  var date = new Date();
+                  // add 1 day
+                  if(e>0){
+                    date.setDate(date.getDate() + e);
+                  }
+                  //for now, date/time fixed.
+                  //To do: Loop through slots and fill them.  I have been just manually changing it 
+                  //const start="08:00"
+                  //const end="08:30"
+
+                 var s = Math.floor(Math.random() * 12-1) + 1
+                 console.log('s',s)
+                  var apptResult =  await makeAppt(name.IEN,result[0].HOSPITAL_LOCATION_ID,result[0].RESOURCEID,date.toLocaleDateString("en-US"),slots[s][0],slots[s][1])
+                  //If already booked a this time exit.
+                  //Todo: Pick a new patient. 
+                  if(apptResult.payload.indexOf("already scheduled")!==-1){
+                    console.log("duplicate appt aborting")
+                    break
+                    }
+                  var appointmentIEN=apptResult.payload.split("^")[1].substr(apptResult.payload.split("^")[1].length-5)
+                  appointmentiens.push(appointmentIEN)
+                  //console.log(appointmentiens);
+                  console.log(apptResult.payload)
+                  }
+                }
               }
-            console.log(apptResult.payload)
-            }
-          }
-        }
+          
       }
+    }
     }
     doAppts()
     }
+    if (d.toString().trim() === 'n') {
+    
+
+     
+      var appointmentiens=[]
+      let apptDays=2
+      const doAppts = async () => {
+        //get clinics
+        var apptsLength=3000
+        for (var e=0;e<apptsLength;e++){
+        var clinics =  await getClinics()
+        console.log('clinics:',clinics.length)
+        //ToDo: Get Clinics from VistA
+        //var iens=config.config.clinicien
+        var iens=config.config.clinicien
+        for (var i=0;i<iens.length;i++){
+          var slots=config.config.slots
+       
+               console.log('clinicien: '+ iens[i])
+  
+               
+                //get random letter
+                const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                let letter = characters.charAt(Math.floor(Math.random() * characters.length))
+                //get random number between 1 and 200
+                let number =200
+                //get random name of patient based on random letter and number
+                let name = await getRandNames(letter,number)
+                console.log(name.length)
+                if(name){
+                  //console.log(name)
+                  for (var n=0;n<name.length;n++){
+                  if(name[n].IEN){
+                    //get date/time
+                    //Todo: Random Date Time so not sequential
+                    for (var e=1;e<apptDays;e++){
+                    var date = new Date();
+                    // add 1 day
+                    if(e>0){
+                      date.setDate(date.getDate() + e);
+                    }
+
+                  //get clinic for appt. (chamging approach. still gonna use the total for lookp of clniics, but adding randomness. )
+                  var c = Math.floor(Math.random() * 75-1) + 1
+                  console.log('clinic',c)
+                  //changed to random.
+                  var result  = clinics.filter(function(o){return o.HOSPITAL_LOCATION_ID == iens[c];} );
+                  var s = Math.floor(Math.random() * 12-1) + 1
+                   console.log('slot',s)
+                   var apptResult =  await makeAppt(name[n].IEN,result[0].HOSPITAL_LOCATION_ID,result[0].RESOURCEID,date.toLocaleDateString("en-US"),slots[s][0],slots[s][1])
+                    //If already booked a this time exit.
+                    //Todo: Pick a new patient. 
+                    if(apptResult.payload.indexOf("already scheduled")!==-1){
+                      console.log("duplicate appt aborting")
+                      break
+                      }
+                    var appointmentIEN=apptResult.payload.split("^")[1].substr(apptResult.payload.split("^")[1].length-5)
+                    appointmentiens.push(appointmentIEN)
+                    //console.log(appointmentiens);
+                    console.log(apptResult.payload)
+                    }
+                  }
+                }
+                }
+            
+        }
+      }
+      }
+      doAppts()
+      }
     if (d.toString().trim() === 'l') {
       listClinics()
+      //getClinics()
     }
     if (d.toString().trim()==='b'){
       //quick add to check bay pines prod for echeckins. 
