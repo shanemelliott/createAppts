@@ -1,49 +1,181 @@
-# Create Clinics and Appointments in VistA
+# VistA Appointment Creation Tool
 
-This repo containes some scripts for creating VistA Clinics and appointments in VistA. This makes use of vista-api (https://github.com/department-of-veterans-affairs/octo-vista-api)
+his application creates bulk appointments in VistA  systems using direct VistaJS RPC connections. It's designed for testing and development environments to generate realistic appointment data.
 
-The basics are:
+## Features
 
-1) Create the clinics.
-2) Get the clinic iens and add to env.js then use that to. (sorry I maually grabbed these from VistA instead of coding it but you could use examples here to do it)
-3) Create Availability.
-3) Make appointments. 
+- **Bulk Appointment Creation**: Generate hundreds of appointments efficiently
+- **Progress Tracking**: Real-time progress bar or detailed logging modes
+- **Timezone Aware**: Automatically converts local time zones to EST (VistA server timezone)
+- **Random Patient/Clinic Assignment**: Uses random patient selection for realistic data distribution
+- **Configurable Logging**: Toggle between progress bar mode and detailed debug output
 
-Once the they are created, you can get the availability.   
+## How It Works
 
-Availability Key:
+1. **Connects directly to VistA** using VistaJS RPC library (no REST API middleware)
+2. **Retrieves DEV clinics** filtered by clinic names starting with "DEV/"
+3. **Generates random patients** using letter/number combinations
+4. **Creates appointment requests** for each patient/clinic pair
+5. **Schedules appointments** with random dates (today + 0-30 days) and time slots
+6. **Handles errors gracefully** including connection resets and scheduling conflicts
 
-	FOR CLINIC AVAILABILITY PATTERNS:
+## Installation
 
-    0-9 and j-z --denote available slots where j=10,k=11...z=26
-            A-W --denote overbooks with A being the first slot to be overbooked
-                  and B being the second for that same time, etc.
-      *,$,!,@,# --denote overbooks or appts. that fall outside of a clinic's
-                  regular hours
+### Prerequisites
+- Node.js (v14 or higher)
+- Access to a VistA development server
+- Valid VistA access/verify codes
 
+### Setup
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd createAppts
+   ```
 
-This uses Vista-api and the xcte RPC entpoint that allows you to execute and RPC in VistA that the Duz you use has access to. 
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-## Futher reading about RPCs. 
-https://vivian.worldvista.org/vivian-data/8994/All-RPC.html
+3. **Configure VistA connection**
+   Edit `config.js` with your VistA server details:
+   ```javascript
+   module.exports = {
+       host: 'your-vista-server.com',
+       port: 9094,
+       accessCode: 'YOUR_ACCESS_CODE',
+       verifyCode: 'YOUR_VERIFY_CODE',
+       clinicDebug: 0, // 0 = progress bar, 1 = detailed logs
+       // ... other settings
+   };
+   ```
 
-## Installation and use
+## Usage
 
-1) Clone
-2) nmp -i
-3) run: node .
-4) use one of the follwoing commands in lowercase:
+### Start the Application
+```bash
+node .
 ```
-c-create clinics;l-list clinics,a-check avialability,m-make appts.,g-makegrid
+
+### Available Commands
+
+| Command | Function | Description |
+|---------|----------|-------------|
+| `l` | **List Clinics** | Shows all DEV clinics available for appointments |
+| `m` | **Make Bulk Appointments** | Creates multiple appointments automatically |
+| `r` | **Create Single Appointment** | Creates one test appointment request and appointment |
+| `u` | **Authenticate User** | Tests user authentication and displays user info |
+
+### Example Session
+```bash
+$ node .
+Commands: l-list DEV clinics, m-make bulk appointments, r-create appointment request & appointment, u-authenticate user
+
+# List available clinics
+l
+DEV Clinics: 15
+DEV/CARDIO/1 (446)
+DEV/PULM/2 (439)
+...
+
+# Create bulk appointments with progress bar
+m
+Progress: 45 attempts | ✓ 38 created | ✗ 7 errors
+
+=== APPOINTMENT CREATION COMPLETE ===
+Total Attempts: 45
+Successful Appointments: 38
+Errors: 7
+Success Rate: 84.4%
+=====================================
 ```
-## Disclosure
 
-I put this together quickly and some of the manual steps were a shortcut.  But this could still be used as an example of how to create clinics and make appts. 
+## Configuration Options
 
-## Note
+### Debug Modes
+- **`clinicDebug: 0`** - Clean progress bar mode (recommended for production)
+- **`clinicDebug: 1`** - Detailed logging mode (recommended for debugging)
 
-VistA Messages come back with a unique format at times.  The following is a successful creation of an appt.:
+### Time Slots
+Configurable appointment time slots in `config.js`:
+```javascript
+slots: [
+    ["08:00","08:30"],
+    ["08:30","09:00"],
+    ["09:00","09:30"],
+    // ... customize as needed
+]
+```
 
+## Technical Details
+
+### VistA RPC Calls Used
+- **SDEC RESCE** - Get clinic information
+- **SDEC GET PATIENT DEMOG** - Retrieve patient demographics
+- **SDEC ARSET** - Create appointment requests
+- **SDEC APPADD** - Create appointments
+- **ORWU USERINFO** - Get user information
+
+### Error Handling
+- **Connection Resets**: Automatic retry with delays
+- **Duplicate Appointments**: Skips patients already scheduled
+- **No Available Slots**: Logs error and continues to next patient
+- **Invalid Parameters**: Detailed error reporting
+
+### Timezone Handling
+Automatically converts from any local timezone to Eastern Time (EST) where VistA servers are typically located.
+
+## Development Notes
+
+### VistA Response Format
+VistA returns responses in a unique format. Successful appointment creation looks like:
+```
 I00020APPOINTMENTID^T00020ERRORID▲33573^▲▼
+```
+This translates to: Appointment ID 33573 with no errors.
 
-This is: I00020APPOINTMENTID^T00020ERRORID then the values 33573^(No Error)
+### Patient Selection
+- Uses random letter (A-Z) + number (1-20) combinations
+- Calls `getRandName()` to find patients matching the pattern
+- Ensures realistic distribution across patient population
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Connection Refused**
+   - Verify VistA server host/port in config.js
+   - Check network connectivity to VistA server
+
+2. **Authentication Failed**
+   - Verify access/verify codes in config.js
+   - Ensure user has proper VistA permissions
+
+3. **No DEV Clinics Found**
+   - Check if clinics exist with names starting with "DEV/"
+   - Verify user has access to clinic data
+
+4. **Timezone Issues**
+   - Application automatically handles timezone conversion
+   - Ensure system clock is accurate
+
+### Debug Mode
+Set `clinicDebug: 1` in config.js for detailed logging:
+```javascript
+clinicDebug: 1 // Shows all RPC calls and responses
+```
+
+## Contributing
+
+This tool was developed for VistA testing environments. Contributions welcome for:
+- Additional RPC call implementations
+- Error handling improvements
+- Performance optimizations
+- Documentation updates
+
+## Disclaimer
+
+**⚠️ For Development/Testing Only**
+This tool is intended for development and testing environments only. Do not use in production VistA systems without proper authorization and testing.
+
