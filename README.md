@@ -1,6 +1,6 @@
 # VistA Appointment Creation Tool
 
-his application creates bulk appointments in VistA  systems using direct VistaJS RPC connections. It's designed for testing and development environments to generate realistic appointment data.
+This application creates bulk appointments in VistA  systems using direct VistaJS RPC connections. It's designed for testing and development environments to generate realistic appointment data.
 
 ## Features
 
