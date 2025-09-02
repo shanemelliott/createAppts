@@ -11,6 +11,7 @@
 *.userprefs
 *.txt
 env.js
+config.js
 test.js
 #files
 *.dll
