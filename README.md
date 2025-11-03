@@ -60,12 +60,13 @@ node .
 
 ### Available Commands
 
-| Command | Function | Description |
-|---------|----------|-------------|
-| `l` | **List Clinics** | Shows all DEV clinics available for appointments |
-| `m` | **Make Bulk Appointments** | Creates multiple appointments automatically |
-| `r` | **Create Single Appointment** | Creates one test appointment request and appointment |
-| `u` | **Authenticate User** | Tests user authentication and displays user info |
+| Command | Function                           | Description                                                      |
+|---------|------------------------------------|------------------------------------------------------------------|
+| `l`     | **List Clinics**                   | Shows all DEV clinics available for appointments                 |
+| `m`     | **Make Bulk Appointments**         | Creates multiple appointments automatically                      |
+| `r`     | **Create Single Appointment**      | Creates one test appointment request and appointment             |
+| `u`     | **Authenticate User**              | Tests user authentication and displays user info                 |
+| `a`     | **Create Appointments for 5 days** | Creates test appointments for test Patients at a specific clinic |
 
 ### Example Session
 ```bash
@@ -107,6 +108,18 @@ slots: [
     // ... customize as needed
 ]
 ```
+
+### Patient ICNs
+
+- **`patientICNs: ["237", "100876", "100898"]`** - ICNs of patients to use for appointment creation. Modify as needed.
+
+### Clinic IEN
+
+- **`clinicIEN: "32"`** - IEN of the clinic, where appointments will be created.
+
+### Resource IEN
+
+- **`resourceIEN: "20"`** - Resource Id corresponding to clinicIEN. You can find this in [clinic_ien_resource_id_mapping.csv](./clinic_ien_resource_id_mapping.csv)
 
 ## Technical Details
 

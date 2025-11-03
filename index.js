@@ -743,58 +743,67 @@ stdin.addListener("data", function (d) {
       console.log(`=====================================`);
     });
   }
-  
-  if (d.toString().trim() === 'a') {
-    const testApptRequestAndCreate = async () => {
-      let patientICNs = ["237", "100876", "100898"]
 
-      let clinicIen = "64";
-      
-      for(var i in patientICNs) {
-        try {
-        console.log('Creating appointment request...');
-        icn = patientICNs[i];
-        var requestResult = await createApptRequest(icn, clinicIen);
-        console.log(clinicIen)
-        console.log('Request ID:', requestResult.requestId);
-        
-        console.log('Creating appointment...');
+    if (d.toString().trim() === 'a') {
+        const testApptRequestAndCreate = async (start, end) => {
+            let patientICNs = config.patientICNs
 
-        for(var offset=1; offset < 5; offset++) {
-           // Get current date/time in EST timezone (where VistA server is located)
-          const appointmentDate = new Date();
-          const estDate = new Date(appointmentDate.toLocaleString("en-US", {timeZone: "America/New_York"}));
-          estDate.setDate(estDate.getDate() + offset);
-          console.log(icn);
-          console.log(offset);
-          console.log(estDate);
-        
-          const apptResult = await makeAppt(
-            icn, 
-            clinicIen, 
-            "31",
-            estDate.toLocaleDateString("en-US"), 
-            "14:00", 
-            "14:30",
-            requestResult
-          );
-          console.log(clinicIen)
-          if (apptResult.success) {
-            console.log('Appointment created successfully for user ' + icn + ' on ' + + estDate + '!');
-            console.log('Appointment ID:', apptResult.appointmentId);
-            console.log(apptResult)
-          } else {
-            console.log('Appointment creation returned unexpected result:', apptResult.payload);
-          }
+            let clinicIen = config.clinicIEN || "64" //default to DEV/PRIMARY CARE;
+
+            for (var i in patientICNs) {
+                    console.log('Creating appointment request...');
+                    icn = patientICNs[i];
+                    resourceIEN = config.resourceIEN || "303" //default to DEV/PRIMARY CARE RESOURCE
+                    var requestResult = await createApptRequest(icn, clinicIen);
+                    console.log(clinicIen)
+                    console.log('Request ID:', requestResult.requestId);
+                    console.log('Creating appointment...');
+
+                    for (var offset = 1; offset < 5; offset++) {
+                        // Get current date/time in EST timezone (where VistA server is located)
+                        const appointmentDate = new Date();
+                        const estDate = new Date(appointmentDate.toLocaleString("en-US", {timeZone: "America/New_York"}));
+                        estDate.setDate(estDate.getDate() + offset);
+                        console.log(icn);
+                        console.log(offset);
+                        console.log(estDate);
+
+                        const apptResult = await makeAppt(
+                            icn,
+                            clinicIen,
+                            resourceIEN,
+                            estDate.toLocaleDateString("en-US"),
+                            start,
+                            end,
+                            requestResult
+                        );
+                        console.log(clinicIen)
+                        if (apptResult.success) {
+                            console.log('Appointment created successfully for user ' + icn + ' on ' + +estDate + '!');
+                            console.log('Appointment ID:', apptResult.appointmentId);
+                            console.log(apptResult)
+                        } else {
+                            console.log('Appointment creation returned unexpected result:', apptResult.payload);
+                        }
+                    }
+            }
+
         }
-        
-      } catch (error) {
-        console.log('Error:', error.message);
-      }
-      }
-      
-    }
-    testApptRequestAndCreate();
+
+        // Iterate over slots asynchronously, break on first success
+        (async () => {
+            for (const slot of config.slots) {
+                const [start, end] = slot;
+                try {
+                    await testApptRequestAndCreate(start, end);
+                    // If no error, break out of the loop
+                    break;
+                } catch (error) {
+                    console.log(`Error for slot [${start}, ${end}]:`, error.message);
+                    // Continue to next slot
+                }
+            }
+        })();
   }
 
 })
