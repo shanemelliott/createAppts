@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Single Appointment Creator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <h1>Create Single Appointment</h1>
+
+      <form id="appointment-form">
+        <label>Default Patient List (ORQPT)
+          <div class="row-inline">
+            <select id="patient-select" name="patientSelect">
+              <option value="">Load and choose a patient</option>
+            </select>
+            <button type="button" id="refresh-patients" class="btn-secondary">Refresh</button>
+          </div>
+        </label>
+
+        <label>Clinic / Location (SDEC RESCE)
+          <div class="row-inline">
+            <select id="clinic-select" name="clinicSelect">
+              <option value="">Load and choose a clinic</option>
+            </select>
+            <button type="button" id="refresh-clinics" class="btn-secondary">Refresh</button>
+          </div>
+        </label>
+
+        <label>Appointment Date
+          <input type="date" id="appointment-date" />
+        </label>
+
+        <label>Available Time Slots
+          <div class="row-inline">
+            <select id="time-slot-select" name="timeSlot">
+              <option value="">Select a date and clinic first</option>
+            </select>
+            <button type="button" id="load-slots-btn" class="btn-secondary">Load Slots</button>
+          </div>
+        </label>
+
+        <label>Consult IEN (optional)<input name="consultIen" placeholder="12345" /></label>
+
+        <label>Request Created By (ARSET piece 7)
+          <input name="requestUserName" value="SYSTEM USER" />
+        </label>
+
+        <label>Request Priority (ARSET piece 8)
+          <input name="requestPriority" value="ASAP" />
+        </label>
+
+        <p class="subtitle">Notes: APPADD pieces are auto-built from selected patient/clinic/slot. Piece 15 is set to C|&lt;consult IEN&gt; when consult is entered, otherwise A|&lt;ARSET request IEN&gt;.</p>
+
+        <button type="submit">Run Flow</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Response</h2>
+      <pre id="output">Ready.</pre>
+    </section>
+
+    <section class="panel">
+      <h2>JWT Debug <button type="button" id="load-jwt" class="btn-secondary" style="font-size:0.8em">Load JWT</button></h2>
+      <pre id="jwt-output" style="font-size:0.75em;max-height:400px;overflow:auto">Click "Load JWT" to decode the token from the token server.</pre>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
