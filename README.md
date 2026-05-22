@@ -8,7 +8,7 @@ A collection of appointment creation tools for VistA, supporting both single and
 
 ### 1. **single-appointment-api** (New Web Tool)
 
-A modern web interface for creating **single appointments** with **consult-linked scheduling** support.
+A  web interface for creating **single appointments** with **consult-linked scheduling** support.
 
 **Features:**
 - Compact web UI (no JSON editors)
