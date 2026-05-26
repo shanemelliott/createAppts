@@ -13,6 +13,9 @@
 env.js
 config.js
 test.js
+test-*.js
+.env
+.token-cache.json
 #files
 *.dll
 *.exe
@@ -28,6 +31,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+reference/
 
 # Visual Studio 2015 cache/options directory
 .vs/
