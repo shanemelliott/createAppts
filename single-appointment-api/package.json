@@ -1,0 +1,18 @@
+{
+  "name": "single-appointment-api",
+  "version": "1.0.0",
+  "description": "Single-appointment creation tool using vista-api-x and token server",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.9.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  }
+}
