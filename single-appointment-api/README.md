@@ -2,13 +2,15 @@
 
 A test harness for consult-linked appointment creation via vista-api-x, with a compact web UI to validate scheduling workflows.
 
-**Version:** 1.0.0 | **Status:** Test/Development harness
+**Version:** 2.0.0 | **Status:** Test/Development harness
 
 ---
 
 ## Table of Contents
 
+- [Features](#features)
 - [Primary Feature: Consult-Linked Scheduling](#primary-feature-consult-linked-scheduling)
+- [Clinic List Management](#clinic-list-management)
 - [Quick Start](#quick-start)
 - [Prerequisites & Requirements](#prerequisites--requirements)
 - [Token Server Setup (Critical)](#token-server-setup-critical)
@@ -17,6 +19,23 @@ A test harness for consult-linked appointment creation via vista-api-x, with a c
 - [UI Workflow](#ui-workflow)
 - [How Consult-Link Scheduling Works](#how-consult-link-scheduling-works)
 - [API Endpoints](#api-endpoints)
+
+---
+
+## Features
+
+### Appointment Creation
+- **Consult-Linked Scheduling**: Direct appointment creation from existing Consult IEN
+- **Patient Lookup**: Load default patient lists (ORQPT)
+- **Clinic Selection**: Browse and select clinics with automatic resource IEN resolution
+- **Availability Checking**: View and select available appointment slots
+- **JWT Debug**: View token claims for troubleshooting
+
+### Clinic List Management (NEW in v2.0)
+- **Search Lists**: Find clinic lists by name and station ID
+- **Create Lists**: Create new clinic lists for organizational purposes
+- **Manage Items**: Add or remove clinics from lists
+- **List Details**: View all clinics associated with a specific list
 
 ---
 
@@ -36,6 +55,30 @@ A test harness for consult-linked appointment creation via vista-api-x, with a c
 - RequestType in response is `CONSULT`
 - ConsultLink matches the consult IEN you provided
 - Appointment appears in VistA clinic schedules immediately
+
+---
+
+## Clinic List Management
+
+**New in Version 2.0**: Manage VA clinic lists through the CWS API.
+
+### Features
+
+- **Search Clinic Lists**: Find lists by name, station ID, user ID, or role
+- **Create New Lists**: Define custom clinic lists with optional default settings
+- **View List Items**: See all clinics associated with a specific list
+- **Add Clinics**: Add clinics to lists by IEN and name
+- **Remove Clinics**: Delete clinics from lists
+
+### Use Cases
+
+- **Organize Favorite Clinics**: Create personal lists of frequently used clinics
+- **Role-Based Lists**: Maintain separate clinic lists for different roles or departments
+- **Station Management**: Track clinic lists per VA station
+
+### UI Access
+
+Navigate to the **Clinic Lists** tab in the web interface to access all list management features.
 
 ---
 
@@ -223,23 +266,38 @@ npm run dev
 
 ## UI Workflow
 
-The web UI is intentionally **compact and streamlined** — no raw JSON editors.
+The web UI features two main sections accessible via tabs:
 
-### Step-by-Step
+### 1. Appointments Tab (Consult-Linked Scheduling)
 
-1. **Select Patient** — Loads from `ORQPT DEFAULT PATIENT LIST` on your site
-2. **Select Clinic** — Sorted alphabetically; resource IEN resolved automatically
-3. **Pick Appointment Date** — Calendar picker
-4. **Load Slots** — Fetches from clinic availability
-5. **Select Slot** — Choose available time
-6. **Optional: Enter Consult IEN** — If scheduling from an existing consult
-7. **Click "Run Flow"** — Creates appointment
+The appointment creator is intentionally **compact and streamlined** — no raw JSON editors.
 
-### Automatic Processing
+#### Step-by-Step
+
+1. **Search for Patient (Optional)** — Enter a partial name (e.g., "HARRIS,SHEB") and click "Search" to find specific patients
+2. **Select Patient** — Choose from search results OR click "Refresh" to load the default patient list
+3. **Select Clinic** — Sorted alphabetically; resource IEN resolved automatically
+4. **Pick Appointment Date** — Calendar picker
+5. **Load Slots** — Fetches from clinic availability
+6. **Select Slot** — Choose available time
+7. **Optional: Enter Consult IEN** — If scheduling from an existing consult
+8. **Click "Run Flow"** — Creates appointment
+
+#### Automatic Processing
 
 - **Consult IEN provided:** Creates appointment directly with consult link (fast path)
 - **Consult IEN blank:** Creates appointment request first, then links appointment (fallback)
 - All payload parameters are auto-built from your selections
+
+### 2. Clinic Lists Tab (List Management)
+
+#### Step-by-Step
+
+1. **Search Lists** — Enter list name and/or station ID, click "Search Lists"
+2. **Create List** — Click "Create New List" to define a new clinic list
+3. **View Items** — Click on any list card to view its clinics
+4. **Add Clinic** — While viewing a list, click "Add Clinic" to add a new clinic
+5. **Remove Clinic** — Click "Delete" next to any clinic to remove it from the list
 
 ---
 
@@ -289,6 +347,7 @@ Result in VistA:
 |----------|---------|--------------|
 | `GET /api/lookups/clinics` | List all clinics | — |
 | `GET /api/lookups/patients/default` | Load default patient list | — |
+| `GET /api/lookups/patients/search` | Search patients by partial name | `name=<partial_name>` |
 | `GET /api/lookups/clinics/:clinicIen/resource` | Get resource IEN for clinic | — |
 | `GET /api/lookups/clinics/:clinicIen/availability` | Get available slots | `date=YYYY-MM-DD` |
 | `GET /api/lookups/jwt-debug` | View parsed JWT claims | — |
@@ -298,6 +357,18 @@ Result in VistA:
 | Endpoint | Purpose | Body |
 |----------|---------|------|
 | `POST /api/appointments` | Create appointment | APPADD payload array |
+
+### Clinic List Management
+
+| Endpoint | Method | Purpose | Body/Params |
+|----------|--------|---------|-------------|
+| `/api/clinic-lists/search` | POST | Search clinic lists | `{ name?, stationId?, userId?, role? }` |
+| `/api/clinic-lists` | POST | Create new list | `{ userId?, name*, stationId*, role?, userDefault? }` |
+| `/api/clinic-lists/:listId/items` | GET | Get items in a list | — |
+| `/api/clinic-lists/:listId/items/:clinicId/:clinicName` | PUT | Add clinic to list | Optional: `{}` |
+| `/api/clinic-lists/items/:listItemId` | DELETE | Remove clinic from list | — |
+
+**Note**: Fields marked with `*` are required. Fields with `?` are optional.
 
 ### Health Check (GET)
 
