@@ -1,5 +1,32 @@
+// Tab Navigation
+document.addEventListener('DOMContentLoaded', () => {
+  const navTabs = document.querySelectorAll('.nav-tab');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  navTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetTab = tab.getAttribute('data-tab');
+
+      // Update nav tabs
+      navTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      // Update content sections
+      tabContents.forEach(content => {
+        if (content.id === `${targetTab}-content`) {
+          content.classList.add('active');
+        } else {
+          content.classList.remove('active');
+        }
+      });
+    });
+  });
+});
+
+// Appointment Creator (existing code)
 const form = document.getElementById('appointment-form');
 const loadJwtBtn = document.getElementById('load-jwt');
+const copyJwtBtn = document.getElementById('copy-jwt');
 const jwtOutput = document.getElementById('jwt-output');
 const output = document.getElementById('output');
 
@@ -71,6 +98,21 @@ loadJwtBtn.addEventListener('click', async () => {
   }
 });
 
+copyJwtBtn.addEventListener('click', async () => {
+  const originalText = copyJwtBtn.textContent;
+  try {
+    const res = await fetch('/api/lookups/jwt-debug');
+    const data = await res.json();
+    if (!data.token) throw new Error('No token in response');
+    await navigator.clipboard.writeText(data.token);
+    copyJwtBtn.textContent = 'Copied!';
+  } catch (err) {
+    copyJwtBtn.textContent = 'Error';
+  } finally {
+    setTimeout(() => { copyJwtBtn.textContent = originalText; }, 2000);
+  }
+});
+
 async function initializeRequestUserFromJwt() {
   try {
     const response = await fetch('/api/lookups/jwt-debug');
@@ -84,6 +126,8 @@ async function initializeRequestUserFromJwt() {
   }
 }
 const patientSelect = document.getElementById('patient-select');
+const patientSearchInput = document.getElementById('patient-search-input');
+const searchPatientsBtn = document.getElementById('search-patients-btn');
 const clinicSelect = document.getElementById('clinic-select');
 const refreshPatientsBtn = document.getElementById('refresh-patients');
 const refreshClinicsBtn = document.getElementById('refresh-clinics');
@@ -205,6 +249,87 @@ async function loadPatients() {
   }
 }
 
+async function searchPatients() {
+  const searchTerm = patientSearchInput.value.trim();
+  
+  if (!searchTerm) {
+    log('ERROR: Enter a partial patient name to search');
+    return;
+  }
+
+  searchPatientsBtn.disabled = true;
+  try {
+    log(`Searching for patients matching: ${searchTerm}`);
+    const response = await fetch(`/api/lookups/patients/search?name=${encodeURIComponent(searchTerm)}`);
+    const body = await response.json();
+    
+    if (!response.ok || !body.success) {
+      throw new Error(body.error || 'Failed to search patients');
+    }
+
+    if (body.patients.length === 0) {
+      log(`No patients found matching: ${searchTerm}`);
+      return;
+    }
+
+    log(`Found ${body.patients.length} patient(s) matching: ${searchTerm}`);
+    
+    // Show results in modal
+    displayPatientSearchResults(body.patients);
+  } catch (err) {
+    log(`Patient search error: ${err.message}`);
+  } finally {
+    searchPatientsBtn.disabled = false;
+  }
+}
+
+function displayPatientSearchResults(patients) {
+  const modal = document.getElementById('patient-search-modal');
+  const container = document.getElementById('patient-search-results-container');
+  
+  if (!patients || patients.length === 0) {
+    container.innerHTML = '<p class="text-muted">No patients found</p>';
+    return;
+  }
+  
+  container.innerHTML = patients.map(patient => `
+    <div class="patient-result-item" onclick="selectPatientFromSearch(${JSON.stringify(patient).replace(/"/g, '&quot;')})">
+      <span class="patient-result-name">${patient.name}</span>
+      <span class="patient-result-dfn">(DFN: ${patient.dfn})</span>
+    </div>
+  `).join('');
+  
+  // Open the modal
+  modal.classList.add('show');
+}
+
+function selectPatientFromSearch(patient) {
+  selectedPatient = patient;
+  
+  // Update the selected patient display
+  const display = document.getElementById('selected-patient-display');
+  const displayText = document.getElementById('selected-patient-text');
+  displayText.textContent = `${patient.name} (DFN: ${patient.dfn})`;
+  display.classList.remove('hidden');
+  
+  // Also update the dropdown to reflect the selection
+  const option = document.createElement('option');
+  option.value = patient.dfn;
+  option.textContent = `${patient.name} (${patient.dfn})`;
+  option.dataset.payload = JSON.stringify(patient);
+  option.selected = true;
+  
+  // Clear and add just this option to show it's selected
+  patientSelect.innerHTML = '';
+  patientSelect.appendChild(option);
+  
+  // Close the modal
+  const modal = document.getElementById('patient-search-modal');
+  modal.classList.remove('show');
+  
+  log(`Selected patient: ${patient.name} (DFN: ${patient.dfn})`);
+}
+
 async function loadClinics() {
   refreshClinicsBtn.disabled = true;
   try {
@@ -243,6 +368,16 @@ async function resolveResourceIenForClinic(clinicIen) {
 }
 
 refreshPatientsBtn.addEventListener('click', loadPatients);
+searchPatientsBtn.addEventListener('click', searchPatients);
+
+// Allow pressing Enter in the search field to trigger search
+patientSearchInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    searchPatients();
+  }
+});
+
 refreshClinicsBtn.addEventListener('click', loadClinics);
 
 patientSelect.addEventListener('change', () => {
@@ -434,3 +569,6 @@ form.addEventListener('submit', async (event) => {
     log(err.message);
   }
 });
+
+// Make selectPatientFromSearch globally accessible for onclick handlers
+window.selectPatientFromSearch = selectPatientFromSearch;

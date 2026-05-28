@@ -65,13 +65,15 @@ function parseDefaultPatients(rawResult) {
     .filter((line) => /^\d+\^/.test(line));
 
   return rows.map((line) => {
-    const caretIndex = line.indexOf('^');
-    const dfn = line.slice(0, caretIndex);
-    const name = line.slice(caretIndex + 1);
+    const parts = line.split('^');
+    const dfn = parts[0];
+    // Format is: DFN^NAME^^^^DISPLAY_NAME
+    // Get the last non-empty part which is the clean display name
+    const displayName = parts[parts.length - 1] || parts[1] || '';
     return {
       dfn,
-      name,
-      display: `${name} (${dfn})`
+      name: displayName,
+      display: `${displayName} (${dfn})`
     };
   });
 }
@@ -93,9 +95,24 @@ async function getClinics() {
 
 async function getDefaultPatients() {
   const result = await callRpc('ORQPT DEFAULT PATIENT LIST', [], 'OR CPRS GUI CHART');
-  console.log('[getDefaultPatients] RPC result (first 500 chars):', JSON.stringify(result).slice(0, 500));
   const patients = parseDefaultPatients(result);
   console.log('[getDefaultPatients] Parsed patients count:', patients.length);
+  return patients;
+}
+
+async function searchPatients(partialName) {
+  // Append @~ to the partial name as required by the RPC
+  // Force to uppercase as required by VistA
+  const searchTerm = `${partialName.toUpperCase()}@~`;
+  console.log('[searchPatients] Calling RPC with params:', {
+    rpc: 'ORWPT LIST ALL',
+    params: [searchTerm, '1'],
+    context: 'OR CPRS GUI CHART'
+  });
+  const result = await callRpc('ORWPT LIST ALL', [searchTerm, '1'], 'OR CPRS GUI CHART');
+  console.log('[searchPatients] RPC result:', result);
+  const patients = parseDefaultPatients(result);
+  console.log('[searchPatients] Parsed patients count:', patients.length);
   return patients;
 }
 
@@ -263,6 +280,7 @@ async function getClinicAvailability(clinicIen, dateStr) {
 module.exports = {
   getClinics,
   getDefaultPatients,
+  searchPatients,
   getClinicResourceByClinicIen,
   getClinicAvailability
 };

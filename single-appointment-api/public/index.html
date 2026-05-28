@@ -7,14 +7,34 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@uswds/uswds@3.7.1/dist/css/uswds.min.css" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <main class="shell">
+  <!-- Navigation Tabs -->
+  <nav class="app-nav">
+    <button class="nav-tab active" data-tab="appointments">Appointments</button>
+    <button class="nav-tab" data-tab="clinic-lists">Clinic Lists</button>
+  </nav>
+
+  <!-- Appointments Section (existing) -->
+  <main class="shell tab-content active" id="appointments-content">
     <section class="panel">
       <h1>Create Single Appointment</h1>
 
       <form id="appointment-form">
+        <label>Search for Patient (ORWPT LIST ALL)
+          <div class="row-inline">
+            <input type="text" id="patient-search-input" placeholder="Enter partial name (e.g., HARRIS,SHEB)" />
+            <button type="button" id="search-patients-btn" class="btn-secondary">Search</button>
+          </div>
+          <small class="field-hint">Search by partial name. Click Search to view results in a modal.</small>
+        </label>
+
+        <div id="selected-patient-display" class="selected-item-display hidden">
+          <strong>Selected Patient:</strong> <span id="selected-patient-text">None</span>
+        </div>
+
         <label>Default Patient List (ORQPT)
           <div class="row-inline">
             <select id="patient-select" name="patientSelect">
@@ -68,11 +88,137 @@
     </section>
 
     <section class="panel">
-      <h2>JWT Debug <button type="button" id="load-jwt" class="btn-secondary" style="font-size:0.8em">Load JWT</button></h2>
+      <h2>JWT Debug <button type="button" id="load-jwt" class="btn-secondary" style="font-size:0.8em">Load JWT</button> <button type="button" id="copy-jwt" class="btn-secondary" style="font-size:0.8em">Copy Encoded JWT</button></h2>
       <pre id="jwt-output" style="font-size:0.75em;max-height:400px;overflow:auto">Click "Load JWT" to decode the token from the token server.</pre>
     </section>
   </main>
 
+  <!-- Clinic Lists Section (new) -->
+  <main class="shell tab-content" id="clinic-lists-content">
+    <section class="panel">
+      <h1>Clinic List Management</h1>
+
+      <!-- Error/Success Messages -->
+      <div id="clinic-list-messages"></div>
+
+      <!-- Search Form -->
+      <div class="search-section">
+        <h2>Find Clinic Lists</h2>
+        <form id="clinic-list-search-form">
+          <div class="form-row">
+            <label>
+              List Name
+              <input type="text" id="search-name" name="name" placeholder="Enter list name" />
+            </label>
+            <label>
+              Station ID
+              <input type="text" id="search-station" name="stationId" value="500" />
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Search Lists</button>
+            <button type="button" id="create-list-btn" class="btn-secondary">Create New List</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Lists Display -->
+      <div class="lists-section">
+        <h2>Clinic Lists</h2>
+        <div id="lists-container" class="lists-grid">
+          <p class="text-muted">Search for lists to get started</p>
+        </div>
+      </div>
+
+      <!-- List Items Display (hidden by default) -->
+      <div id="list-items-section" class="list-items-section hidden">
+        <div class="section-header">
+          <h2 id="list-items-title">List Items</h2>
+          <div>
+            <button type="button" id="add-item-btn" class="btn-secondary">Add Clinic</button>
+            <button type="button" id="back-to-lists-btn" class="btn-outline">Back to Lists</button>
+          </div>
+        </div>
+        <div id="list-items-container"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Create List Modal -->
+  <div id="create-list-modal" class="simple-modal">
+    <div class="simple-modal-content">
+      <button type="button" class="simple-modal-close" aria-label="Close">&times;</button>
+      <div class="simple-modal-header">
+        <h2>Create New Clinic List</h2>
+      </div>
+      <form id="create-list-form">
+        <label>
+          User ID (optional)
+          <input type="text" name="userId" placeholder="e.g., 10000000123" />
+        </label>
+        <label>
+          List Name *
+          <input type="text" name="name" required placeholder="e.g., My Favorite Clinics" />
+        </label>
+        <label>
+          Station ID *
+          <input type="text" name="stationId" required value="500" />
+        </label>
+        <label>
+          Role (optional)
+          <input type="text" name="role" placeholder="e.g., Provider" />
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="userDefault" />
+          Set as default list
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Create List</button>
+          <button type="button" class="btn-outline modal-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Item Modal -->
+  <div id="add-item-modal" class="simple-modal">
+    <div class="simple-modal-content">
+      <button type="button" class="simple-modal-close" aria-label="Close">&times;</button>
+      <div class="simple-modal-header">
+        <h2>Add Clinic to List</h2>
+      </div>
+      <form id="add-item-form">
+        <input type="hidden" id="add-list-id" name="listId" />
+        <label>
+          Clinic IEN *
+          <input type="text" name="clinicId" required placeholder="e.g., 123" />
+        </label>
+        <label>
+          Clinic Name *
+          <input type="text" name="clinicName" required placeholder="e.g., Primary Care" />
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Add to List</button>
+          <button type="button" class="btn-outline modal-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Patient Search Results Modal -->
+  <div id="patient-search-modal" class="simple-modal">
+    <div class="simple-modal-content simple-modal-wide">
+      <button type="button" class="simple-modal-close" aria-label="Close">&times;</button>
+      <div class="simple-modal-header">
+        <h2>Patient Search Results</h2>
+      </div>
+      <div id="patient-search-results-container">
+        <p class="text-muted">No results to display</p>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
+  <script src="/clinic-lists.js"></script>
 </body>
 </html>

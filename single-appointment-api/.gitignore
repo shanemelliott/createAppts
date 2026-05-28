@@ -4,3 +4,4 @@ npm-debug.log*
 .token-cache.json
 test-*.js
 token-cache.js
+.vscode/

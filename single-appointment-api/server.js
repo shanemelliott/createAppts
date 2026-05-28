@@ -5,6 +5,7 @@ dotenv.config();
 const express = require('express');
 const appointmentsRouter = require('./src/routes/appointments');
 const lookupsRouter = require('./src/routes/lookups');
+const clinicListsRouter = require('./src/routes/clinicLists');
 
 const app = express();
 const PORT = Number(process.env.PORT || 4010);
@@ -18,6 +19,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/appointments', appointmentsRouter);
 app.use('/api/lookups', lookupsRouter);
+app.use('/api/clinic-lists', clinicListsRouter);
 
 app.use((err, req, res, next) => {
   const status = err.status || 500;

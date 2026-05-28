@@ -1,5 +1,5 @@
 const express = require('express');
-const { getClinics, getDefaultPatients, getClinicResourceByClinicIen, getClinicAvailability } = require('../services/lookupService');
+const { getClinics, getDefaultPatients, searchPatients, getClinicResourceByClinicIen, getClinicAvailability } = require('../services/lookupService');
 const { getToken } = require('../services/tokenService');
 
 const router = express.Router();
@@ -22,6 +22,24 @@ router.get('/patients/default', async (req, res, next) => {
   }
 });
 
+router.get('/patients/search', async (req, res, next) => {
+  try {
+    const { name } = req.query;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'name query parameter is required'
+      });
+    }
+
+    const patients = await searchPatients(name.trim());
+    res.json({ success: true, count: patients.length, patients });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/jwt-debug', async (req, res, next) => {
   try {
     const token = await getToken();
@@ -36,7 +54,7 @@ router.get('/jwt-debug', async (req, res, next) => {
       payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
     }
     console.log('[jwt-debug] payload:', JSON.stringify(payload, null, 2));
-    res.json({ success: true, payload });
+    res.json({ success: true, token, payload });
   } catch (err) {
     console.error('[jwt-debug] error:', err.message);
     next(err);

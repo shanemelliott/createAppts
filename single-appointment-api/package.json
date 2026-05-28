@@ -1,7 +1,7 @@
 {
   "name": "single-appointment-api",
-  "version": "1.0.0",
-  "description": "Single-appointment creation tool using vista-api-x and token server",
+  "version": "2.0.0",
+  "description": "VA appointment creation and clinic list management tool using vista-api-x and CWS API with token server authentication",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
