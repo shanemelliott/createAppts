@@ -1,5 +1,5 @@
-const { callRpc } = require('./vistaApiClient');
-const { getRequestUserNameFromJwt } = require('./tokenService');
+import { callRpc } from './vistaApiClient.js';
+import { getRequestUserNameFromJwt } from './tokenService.js';
 
 function validatePayload(payload) {
   const required = ['appointmentParams'];
@@ -253,6 +253,6 @@ async function createAppointmentFlow(payload) {
   };
 }
 
-module.exports = {
+export {
   createAppointmentFlow
 };

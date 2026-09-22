@@ -1,11 +1,27 @@
-const path = require('path');
-const dotenv = require('dotenv');
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import express from 'express';
+import https from 'https';
+import axios from 'axios';
+import appointmentsRouter from './src/routes/appointments.js';
+import lookupsRouter from './src/routes/lookups.js';
+import clinicListsRouter from './src/routes/clinicLists.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config();
 
-const express = require('express');
-const appointmentsRouter = require('./src/routes/appointments');
-const lookupsRouter = require('./src/routes/lookups');
-const clinicListsRouter = require('./src/routes/clinicLists');
+// SSL Certificate handling for VA government certificates
+// Only disable for non-production environments (sqa, preprod)
+// Set NODE_TLS_REJECT_UNAUTHORIZED=0 in .env for staging/preprod
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0'
+});
+
+// Set global axios default to handle SSL for all axios calls including @va modules
+axios.defaults.httpsAgent = httpsAgent;
 
 const app = express();
 const PORT = Number(process.env.PORT || 4010);

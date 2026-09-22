@@ -1,10 +1,5 @@
-const axios = require('axios');
-const https = require('https');
-const { getToken } = require('./tokenService');
-
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0'
-});
+import axios from 'axios';
+import { getToken } from './tokenService.js';
 
 /**
  * Get base configuration for CWS API calls
@@ -24,7 +19,7 @@ async function getCwsConfig() {
  * Make a request to the CWS API
  * @param {string} endpoint - API endpoint path
  * @param {string} method - HTTP method
- * @param {object|null} data - Request body for POST/PUT
+ * @param {object|null} data - Request body for POST/PUT/PATCH
  * @returns {Promise<any>}
  */
 async function cwsRequest(endpoint, method = 'GET', data = null) {
@@ -38,11 +33,10 @@ async function cwsRequest(endpoint, method = 'GET', data = null) {
       'x-vamf-jwt': token,
       'Content-Type': 'application/json'
     },
-    httpsAgent,
     timeout: 30000
   };
 
-  if (data && (method === 'POST' || method === 'PUT')) {
+  if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
     config.data = data;
   }
 
@@ -80,6 +74,22 @@ async function createList(listData) {
 }
 
 /**
+ * Update a clinic list
+ * @param {string} listId - List ID
+ * @param {object} updateData - Data to update (e.g., { userDefault: true })
+ * @returns {Promise<object>}
+ */
+async function updateList(listId, updateData) {
+  // CWS API uses POST for both create and update
+  // When id is present in the data, it performs an update
+  const dataWithId = {
+    ...updateData,
+    id: listId
+  };
+  return cwsRequest('/v1_0_0/pcl/list', 'POST', dataWithId);
+}
+
+/**
  * Get items (clinics) in a specific list
  * @param {string} listId - List ID
  * @returns {Promise<Array>}
@@ -110,9 +120,10 @@ async function deleteListItem(listItemId) {
   return cwsRequest(`/v1_0_0/pcl/list-item/${listItemId}`, 'DELETE');
 }
 
-module.exports = {
+export {
   searchLists,
   createList,
+  updateList,
   getListItems,
   addItemToList,
   deleteListItem

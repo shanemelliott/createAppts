@@ -1,10 +1,11 @@
-const {
+import {
   searchLists,
   createList,
+  updateList,
   getListItems,
   addItemToList,
   deleteListItem
-} = require('../services/clinicListService');
+} from '../services/clinicListService.js';
 
 /**
  * Search clinic lists
@@ -76,6 +77,48 @@ async function handleCreateList(req, res, next) {
     res.json({ success: true, list: result });
   } catch (err) {
     console.error('[clinicListController] Create error:', err.message);
+    next(err);
+  }
+}
+
+/**
+ * Update a clinic list (e.g., set as default)
+ */
+async function handleUpdateList(req, res, next) {
+  try {
+    const { listId } = req.params;
+    const updateData = req.body || {};
+    
+    if (!listId) {
+      return res.status(400).json({
+        success: false,
+        error: 'listId is required'
+      });
+    }
+
+    console.log('[clinicListController] Updating list:', listId, updateData);
+    
+    // Need to get the existing list data first to merge with updates
+    const lists = await searchLists();
+    const existingList = lists.find(l => String(l.id) === String(listId));
+    
+    if (!existingList) {
+      return res.status(404).json({
+        success: false,
+        error: 'List not found'
+      });
+    }
+    
+    // Merge existing data with updates
+    const mergedData = {
+      ...existingList,
+      ...updateData
+    };
+    
+    const result = await updateList(listId, mergedData);
+    res.json({ success: true, list: result });
+  } catch (err) {
+    console.error('[clinicListController] Update error:', err.message);
     next(err);
   }
 }
@@ -153,9 +196,10 @@ async function handleDeleteListItem(req, res, next) {
   }
 }
 
-module.exports = {
+export {
   handleSearchLists,
   handleCreateList,
+  handleUpdateList,
   handleGetListItems,
   handleAddItemToList,
   handleDeleteListItem

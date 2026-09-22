@@ -1,5 +1,5 @@
-const { callRpc } = require('./vistaApiClient');
-const cwsApiClient = require('./cwsApiClient');
+import { callRpc } from './vistaApiClient.js';
+import * as cwsApiClient from './cwsApiClient.js';
 
 function findFirstString(value) {
   if (typeof value === 'string') {
@@ -277,7 +277,7 @@ async function getClinicAvailability(clinicIen, dateStr) {
   return parseAppSlotsPayload(payload);
 }
 
-module.exports = {
+export {
   getClinics,
   getDefaultPatients,
   searchPatients,

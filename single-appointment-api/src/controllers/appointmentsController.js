@@ -1,4 +1,4 @@
-const { createAppointmentFlow } = require('../services/appointmentService');
+import { createAppointmentFlow } from '../services/appointmentService.js';
 
 async function createAppointment(req, res, next) {
   try {
@@ -9,6 +9,6 @@ async function createAppointment(req, res, next) {
   }
 }
 
-module.exports = {
+export {
   createAppointment
 };

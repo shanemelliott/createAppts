@@ -1,10 +1,5 @@
-const axios = require('axios');
-const https = require('https');
-const { getToken, getDuzForSite } = require('./tokenService');
-
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0'
-});
+import axios from 'axios';
+import { getToken, getDuzForSite } from './tokenService.js';
 
 function safeTrimmedString(value, maxLen = 1000) {
   const raw = typeof value === 'string' ? value : JSON.stringify(value);
@@ -12,7 +7,8 @@ function safeTrimmedString(value, maxLen = 1000) {
   return raw.length > maxLen ? `${raw.slice(0, maxLen)}...` : raw;
 }
 
-async function callRpc(rpcName, params, context = 'SDECRPC') {
+async function callRpc(rpcName, params, context = 'SDECRPC', options = {}) {
+  const jsonResult = options.jsonResult === true;
   const baseUrl = process.env.VISTA_API_BASE_URL;
   const siteId = process.env.VISTA_SITE_ID;
   const apiKey = process.env.VISTA_API_KEY;
@@ -51,7 +47,7 @@ async function callRpc(rpcName, params, context = 'SDECRPC') {
       {
         context,
         rpc: rpcName,
-        jsonResult: false,
+        jsonResult,
         parameters: normalizedParameters
       },
       {
@@ -60,7 +56,6 @@ async function callRpc(rpcName, params, context = 'SDECRPC') {
           authorization: `Bearer ${token}`,
           'X-OCTO-VistA-API': apiKey
         },
-        httpsAgent,
         timeout: 30000
       }
     );
@@ -90,6 +85,6 @@ async function callRpc(rpcName, params, context = 'SDECRPC') {
   return response.data;
 }
 
-module.exports = {
+export {
   callRpc
 };

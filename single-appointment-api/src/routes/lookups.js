@@ -1,6 +1,7 @@
-const express = require('express');
-const { getClinics, getDefaultPatients, searchPatients, getClinicResourceByClinicIen, getClinicAvailability } = require('../services/lookupService');
-const { getToken } = require('../services/tokenService');
+import express from 'express';
+import { getClinics, getDefaultPatients, searchPatients, getClinicResourceByClinicIen, getClinicAvailability } from '../services/lookupService.js';
+import { getPatientAppointments } from '../services/patientAppointmentService.js';
+import { getToken } from '../services/tokenService.js';
 
 const router = express.Router();
 
@@ -35,6 +36,33 @@ router.get('/patients/search', async (req, res, next) => {
 
     const patients = await searchPatients(name.trim());
     res.json({ success: true, count: patients.length, patients });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/patients/:dfn/appointments', async (req, res, next) => {
+  try {
+    const { dfn } = req.params;
+    const { start, end } = req.query;
+
+    if (!start || !end) {
+      return res.status(400).json({
+        success: false,
+        error: 'start and end query parameters are required (YYYY-MM-DD)'
+      });
+    }
+
+    const result = await getPatientAppointments({ dfn, startDate: start, endDate: end });
+    res.json({
+      success: true,
+      dfn,
+      start: result.start,
+      end: result.end,
+      count: result.appointments.length,
+      appointments: result.appointments,
+      raw: result.raw
+    });
   } catch (err) {
     next(err);
   }
@@ -88,4 +116,4 @@ router.get('/clinics/:clinicIen/availability', async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;
