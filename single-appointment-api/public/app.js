@@ -132,6 +132,7 @@ const clinicSelect = document.getElementById('clinic-select');
 const refreshPatientsBtn = document.getElementById('refresh-patients');
 const refreshClinicsBtn = document.getElementById('refresh-clinics');
 const appointmentDateInput = document.getElementById('appointment-date');
+const desiredDateInput = document.getElementById('desired-date');
 const timeSlotSelect = document.getElementById('time-slot-select');
 const loadSlotsBtn = document.getElementById('load-slots-btn');
 
@@ -173,7 +174,14 @@ function defaultDesiredDate() {
   return formatMmDdYyyy(future);
 }
 
-function buildDefaultRequestParams({ patientDfn, clinicIen, clinicName, requestUserName, requestPriority, appointmentParams }) {
+function formatMmDdYyyyFromDateInput(dateStr) {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  if (!year || !month || !day) return '';
+  return `${Number(month)}/${Number(day)}/${year}`;
+}
+
+function buildDefaultRequestParams({ patientDfn, clinicIen, institutionName, requestUserName, requestPriority, appointmentParams }) {
   const desiredDateFromAppAdd = String(appointmentParams[9] || '').trim();
   const desiredDate = desiredDateFromAppAdd || defaultDesiredDate();
 
@@ -181,7 +189,8 @@ function buildDefaultRequestParams({ patientDfn, clinicIen, clinicName, requestU
     '',
     patientDfn,
     formatNowForArset(),
-    clinicName || 'UNKNOWN CLINIC',
+    // ARSET INP(4): Institution NAME field (file 4), not the clinic name.
+    institutionName || 'CAMP MASTER',
     'APPT',
     clinicIen,
     requestUserName || 'SYSTEM USER',
@@ -486,11 +495,32 @@ timeSlotSelect.addEventListener('change', () => {
 
 loadSlotsBtn.addEventListener('click', loadAvailableSlots);
 
+// Auto-reload slots when date changes
+appointmentDateInput.addEventListener('change', () => {
+  // Clear the current time slot selection
+  timeSlotSelect.innerHTML = '<option value="">Select a date and clinic first</option>';
+  
+  // Clear the selected appointment params
+  selectedAppointmentParams = buildDefaultAppointmentParams();
+  
+  // Auto-load slots if clinic is already selected
+  if (selectedClinic && selectedClinic.clinicIen) {
+    loadAvailableSlots();
+  } else {
+    log('Select a clinic to load available time slots');
+  }
+});
+
 // Set default appointment date to tomorrow
 const tomorrow = new Date();
 tomorrow.setDate(tomorrow.getDate() + 1);
 const tomorrowStr = tomorrow.toISOString().split('T')[0];
 appointmentDateInput.value = tomorrowStr;
+
+// Set default desired date to 30 days out
+const desiredDateDefault = new Date();
+desiredDateDefault.setDate(desiredDateDefault.getDate() + 30);
+desiredDateInput.value = desiredDateDefault.toISOString().split('T')[0];
 
 loadPatients();
 loadClinics();
@@ -512,6 +542,8 @@ form.addEventListener('submit', async (event) => {
     appointmentParams[3] = String(selectedResourceIen || '');
     // APPADD piece 18 (index 17) is clinic IEN.
     appointmentParams[17] = String(selectedClinic?.clinicIen || '');
+    // APPADD piece 10 (index 9) is SDDDT: desired appointment date.
+    appointmentParams[9] = formatMmDdYyyyFromDateInput(desiredDateInput.value);
 
     const requestUserName = String(data.get('requestUserName') || '').trim();
     const requestPriority = String(data.get('requestPriority') || '').trim();
@@ -542,7 +574,6 @@ form.addEventListener('submit', async (event) => {
     payload.requestParams = buildDefaultRequestParams({
       patientDfn: String(selectedPatient.dfn),
       clinicIen: String(selectedClinic.clinicIen),
-      clinicName: String(selectedClinic.clinicName || ''),
       requestUserName: payload.requestUserName,
       requestPriority: payload.requestPriority,
       appointmentParams: payload.appointmentParams

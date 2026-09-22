@@ -1,11 +1,12 @@
-const express = require('express');
-const {
+import express from 'express';
+import {
   handleSearchLists,
   handleCreateList,
+  handleUpdateList,
   handleGetListItems,
   handleAddItemToList,
   handleDeleteListItem
-} = require('../controllers/clinicListController');
+} from '../controllers/clinicListController.js';
 
 const router = express.Router();
 
@@ -14,6 +15,9 @@ router.post('/search', handleSearchLists);
 
 // Create a new list
 router.post('/', handleCreateList);
+
+// Update a list (e.g., set as default)
+router.put('/:listId', handleUpdateList);
 
 // Get items in a list
 router.get('/:listId/items', handleGetListItems);
@@ -24,4 +28,4 @@ router.put('/:listId/items/:clinicId/:clinicName', handleAddItemToList);
 // Delete an item from a list
 router.delete('/items/:listItemId', handleDeleteListItem);
 
-module.exports = router;
+export default router;

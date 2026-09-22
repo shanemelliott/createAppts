@@ -1,10 +1,5 @@
-const axios = require('axios');
-const https = require('https');
-const { getToken, getDuzForSite } = require('./tokenService');
-
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0'
-});
+import axios from 'axios';
+import { getToken, getDuzForSite } from './tokenService.js';
 
 async function getCwsClient() {
   const baseUrl = process.env.CWS_API_BASE_URL;
@@ -21,17 +16,27 @@ async function getClinics() {
   const { baseUrl, siteId, duz, token } = await getCwsClient();
   const url = `${baseUrl}/vista-sites/${siteId}/users/${duz}/clinics`;
 
-  const response = await axios.get(url, {
-    headers: {
-      'x-vamf-jwt': token,
-      'Content-Type': 'application/json'
-    },
-    httpsAgent,
-    timeout: 30000
-  });
+  console.log('[getClinics] GET', url);
+  console.log('[getClinics] siteId:', siteId, '| duz:', duz);
 
-  // Return the full response body — lookupService handles JSON:API unwrapping
-  return response.data;
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'x-vamf-jwt': token,
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000
+    });
+
+    console.log('[getClinics] Response status:', response.status, '| items:', Array.isArray(response.data?.data) ? response.data.data.length : '(non-array)');
+    // Return the full response body — lookupService handles JSON:API unwrapping
+    return response.data;
+  } catch (err) {
+    console.error('[getClinics] ERROR status:', err.response?.status);
+    console.error('[getClinics] ERROR body:', JSON.stringify(err.response?.data, null, 2));
+    console.error('[getClinics] ERROR message:', err.message);
+    throw err;
+  }
 }
 
-module.exports = { getClinics };
+export { getClinics };

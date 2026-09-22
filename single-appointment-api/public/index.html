@@ -14,6 +14,7 @@
   <!-- Navigation Tabs -->
   <nav class="app-nav">
     <button class="nav-tab active" data-tab="appointments">Appointments</button>
+    <button class="nav-tab" data-tab="patient-appointments">Patient Appointments</button>
     <button class="nav-tab" data-tab="clinic-lists">Clinic Lists</button>
   </nav>
 
@@ -57,6 +58,11 @@
           <input type="date" id="appointment-date" />
         </label>
 
+        <label>Desired Appointment Date (APPADD piece 10 / SDDDT)
+          <input type="date" id="desired-date" />
+          <small class="field-hint">Date the patient/provider desires the appointment (used for ARSET desired date too).</small>
+        </label>
+
         <label>Available Time Slots
           <div class="row-inline">
             <select id="time-slot-select" name="timeSlot">
@@ -90,6 +96,54 @@
     <section class="panel">
       <h2>JWT Debug <button type="button" id="load-jwt" class="btn-secondary" style="font-size:0.8em">Load JWT</button> <button type="button" id="copy-jwt" class="btn-secondary" style="font-size:0.8em">Copy Encoded JWT</button></h2>
       <pre id="jwt-output" style="font-size:0.75em;max-height:400px;overflow:auto">Click "Load JWT" to decode the token from the token server.</pre>
+    </section>
+  </main>
+
+  <!-- Patient Appointments Section -->
+  <main class="shell tab-content" id="patient-appointments-content">
+    <section class="panel">
+      <h1>Patient Appointments</h1>
+
+      <div id="pa-messages"></div>
+
+      <div class="search-section">
+        <div id="pa-selected-patient" class="selected-item-display">
+          <strong>Selected Patient:</strong> <span id="pa-selected-patient-text">None &mdash; select a patient on the Appointments tab</span>
+        </div>
+
+        <div class="form-row">
+          <label>Start Date
+            <input type="date" id="pa-start-date" />
+          </label>
+          <label>End Date
+            <input type="date" id="pa-end-date" />
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>Timeframe (months from start)
+            <input type="number" id="pa-months" min="1" max="60" step="1" value="4" />
+            <small class="field-hint">Changing this recalculates the end date. Default is 4 months.</small>
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="pa-load-btn" class="btn-primary">Load Appointments</button>
+          <button type="button" id="pa-reset-btn" class="btn-outline">Reset Dates</button>
+        </div>
+      </div>
+
+      <div class="lists-section">
+        <h2>Results (SDES GET APPTS BY PATIENT DFN3)</h2>
+        <div id="pa-results-container">
+          <p class="text-muted">No appointments loaded</p>
+        </div>
+      </div>
+
+      <details id="pa-raw-details" class="hidden">
+        <summary>Raw RPC response</summary>
+        <pre id="pa-raw-output"></pre>
+      </details>
     </section>
   </main>
 
@@ -219,6 +273,7 @@
   </div>
 
   <script src="/app.js"></script>
+  <script src="/patient-appointments.js"></script>
   <script src="/clinic-lists.js"></script>
 </body>
 </html>
