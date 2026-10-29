@@ -15,6 +15,7 @@
   <nav class="app-nav">
     <button class="nav-tab active" data-tab="appointments">Appointments</button>
     <button class="nav-tab" data-tab="patient-appointments">Patient Appointments</button>
+    <button class="nav-tab" data-tab="open-slots">Open Slots</button>
     <button class="nav-tab" data-tab="clinic-lists">Clinic Lists</button>
   </nav>
 
@@ -34,6 +35,19 @@
 
         <div id="selected-patient-display" class="selected-item-display hidden">
           <strong>Selected Patient:</strong> <span id="selected-patient-text">None</span>
+        </div>
+
+        <div id="patient-contact" class="patient-contact hidden">
+          <div id="cell-phone-view" class="row-inline">
+            <span><strong>Cell Phone:</strong> <span id="cell-phone-text">Loading...</span></span>
+            <button type="button" id="cell-phone-edit-btn" class="btn-secondary">Edit</button>
+          </div>
+          <div id="cell-phone-edit" class="row-inline hidden">
+            <input type="tel" id="cell-phone-input" placeholder="5551234567" maxlength="14" />
+            <button type="button" id="cell-phone-save-btn">Save</button>
+            <button type="button" id="cell-phone-cancel-btn" class="btn-outline">Cancel</button>
+          </div>
+          <small id="cell-phone-status" class="field-hint"></small>
         </div>
 
         <label>Default Patient List (ORQPT)
@@ -143,6 +157,47 @@
       <details id="pa-raw-details" class="hidden">
         <summary>Raw RPC response</summary>
         <pre id="pa-raw-output"></pre>
+      </details>
+    </section>
+  </main>
+
+  <!-- Open Slots Section -->
+  <main class="shell tab-content" id="open-slots-content">
+    <section class="panel">
+      <h1>Open Slots</h1>
+
+      <div id="os-messages"></div>
+
+      <div class="search-section">
+        <div class="selected-item-display">
+          <strong>Selected Clinic:</strong> <span id="os-selected-clinic-text">None &mdash; select a clinic on the Appointments tab</span>
+        </div>
+
+        <div class="form-row">
+          <label>Start Date
+            <input type="date" id="os-start-date" />
+          </label>
+          <label>End Date
+            <input type="date" id="os-end-date" />
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="os-load-btn" class="btn-primary">Load Open Slots</button>
+        </div>
+      </div>
+
+      <div class="lists-section">
+        <h2>Availability (SDEC APPSLOTS)</h2>
+        <div id="os-results-container">
+          <p class="text-muted">No slots loaded</p>
+        </div>
+        <small class="field-hint">Each box is a slot start time with its open count in parentheses (0 = full). Letters/symbols are overbooks or outside-hours blocks.</small>
+      </div>
+
+      <details id="os-raw-details" class="hidden">
+        <summary>Raw RPC response</summary>
+        <pre id="os-raw-output"></pre>
       </details>
     </section>
   </main>
@@ -274,6 +329,7 @@
 
   <script src="/app.js"></script>
   <script src="/patient-appointments.js"></script>
+  <script src="/open-slots.js"></script>
   <script src="/clinic-lists.js"></script>
 </body>
 </html>

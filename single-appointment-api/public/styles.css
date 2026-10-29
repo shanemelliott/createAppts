@@ -389,6 +389,49 @@ table button {
   margin: 0;
 }
 
+/* Open Slots */
+.os-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.os-table th,
+.os-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #dfe1e2;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.os-day {
+  white-space: nowrap;
+}
+
+.os-slot {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+  padding: 2px 6px;
+  text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85em;
+  border-radius: 3px;
+}
+
+.os-slot-open {
+  background: #d9f2de;
+  color: #1a4480;
+}
+
+.os-slot-full {
+  background: #e6e6e6;
+  color: #71767a;
+}
+
+.os-slot-over {
+  background: #fde3c8;
+  color: #8a4b00;
+}
+
 /* Utility Classes */
 .hidden {
   display: none;
@@ -431,6 +474,22 @@ table button {
 }
 
 .selected-item-display.hidden {
+  display: none;
+}
+
+.patient-contact {
+  padding: 12px;
+  background: #f5f9f5;
+  border: 1px solid #c3e6cb;
+  border-radius: 8px;
+  margin: -8px 0 16px 0;
+}
+
+.patient-contact .row-inline {
+  align-items: center;
+}
+
+.patient-contact .row-inline.hidden {
   display: none;
 }
 

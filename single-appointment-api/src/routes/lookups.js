@@ -1,5 +1,14 @@
 import express from 'express';
-import { getClinics, getDefaultPatients, searchPatients, getClinicResourceByClinicIen, getClinicAvailability } from '../services/lookupService.js';
+import {
+  getClinics,
+  getDefaultPatients,
+  searchPatients,
+  getClinicResourceByClinicIen,
+  getClinicAvailability,
+  getPatientCellPhone,
+  setPatientCellPhone,
+  getClinicOpenSlots
+} from '../services/lookupService.js';
 import { getPatientAppointments } from '../services/patientAppointmentService.js';
 import { getToken } from '../services/tokenService.js';
 
@@ -63,6 +72,58 @@ router.get('/patients/:dfn/appointments', async (req, res, next) => {
       appointments: result.appointments,
       raw: result.raw
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/clinics/:clinicIen/open-slots', async (req, res, next) => {
+  try {
+    const { clinicIen } = req.params;
+    const { start, end } = req.query;
+    const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+    if (!/^\d+$/.test(clinicIen)) {
+      return res.status(400).json({ success: false, error: 'clinicIen must be numeric' });
+    }
+    if (!isoDate.test(start || '') || !isoDate.test(end || '') || end < start) {
+      return res.status(400).json({ success: false, error: 'start and end query parameters are required (YYYY-MM-DD, end >= start)' });
+    }
+
+    const result = await getClinicOpenSlots(clinicIen, start, end);
+    res.json({ success: true, clinicIen, start, end, count: result.days.length, days: result.days, raw: result.raw });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/patients/:dfn/cell-phone', async (req, res, next) => {
+  try {
+    const { dfn } = req.params;
+    if (!/^\d+$/.test(dfn)) {
+      return res.status(400).json({ success: false, error: 'dfn must be numeric' });
+    }
+    const result = await getPatientCellPhone(dfn);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/patients/:dfn/cell-phone', async (req, res, next) => {
+  try {
+    const { dfn } = req.params;
+    if (!/^\d+$/.test(dfn)) {
+      return res.status(400).json({ success: false, error: 'dfn must be numeric' });
+    }
+
+    // Store digits only; empty string deletes the field.
+    const cellPhone = String(req.body?.cellPhone ?? '').replace(/\D/g, '');
+    if (cellPhone && cellPhone.length !== 10) {
+      return res.status(400).json({ success: false, error: 'cellPhone must be 10 digits (or empty to clear)' });
+    }
+
+    const result = await setPatientCellPhone(dfn, cellPhone);
+    res.json({ success: true, ...result });
   } catch (err) {
     next(err);
   }
