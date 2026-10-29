@@ -26,7 +26,8 @@ async function callRpc(rpcName, params, context = 'SDECRPC', options = {}) {
   const userDuz = await getDuzForSite(siteId);
 
   const normalizedParameters = (params || []).map((value) => {
-    if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'string')) {
+    if (value && typeof value === 'object'
+      && (Object.prototype.hasOwnProperty.call(value, 'string') || Object.prototype.hasOwnProperty.call(value, 'namedArray'))) {
       return value;
     }
     return { string: String(value ?? '') };

@@ -277,10 +277,136 @@ async function getClinicAvailability(clinicIen, dateStr) {
   return parseAppSlotsPayload(payload);
 }
 
+function parseJsonRpcResult(raw) {
+  if (Array.isArray(raw) && raw.every((part) => typeof part === 'string')) {
+    raw = raw.join('');
+  }
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return raw;
+}
+
+// Looks for file #2 field .134 (PHONE NUMBER [CELLULAR]) under any likely key name.
+function findCellPhone(value) {
+  if (!value || typeof value !== 'object') return null;
+
+  for (const [key, val] of Object.entries(value)) {
+    if (val !== null && typeof val !== 'object' && (/^\.?134$/.test(key) || /cell/i.test(key))) {
+      return String(val);
+    }
+  }
+
+  for (const val of Object.values(value)) {
+    if (val && typeof val === 'object') {
+      const found = findCellPhone(val);
+      if (found !== null) return found;
+    }
+  }
+
+  return null;
+}
+
+async function getPatientCellPhone(dfn) {
+  const raw = await callRpc('SDES GET PATIENT REGISTRATION2', [String(dfn)], 'SDECRPC', { jsonResult: true });
+  const result = parseJsonRpcResult(raw);
+
+  if (result && typeof result === 'object' && result.ERROR) {
+    const err = new Error(result.ERROR);
+    err.status = 502;
+    throw err;
+  }
+
+  const cell = result?.Patient?.Cell;
+  const cellPhone = cell !== undefined && cell !== null && cell !== '' ? String(cell) : findCellPhone(result) || '';
+  return { dfn: String(dfn), cellPhone, raw: result };
+}
+
+async function setPatientCellPhone(dfn, cellPhone) {
+  const raw = await callRpc(
+    'CDSP UTIL VET SET',
+    [String(dfn), { namedArray: { 1: `F^.134^${cellPhone}` } }, '1'],
+    'CDSP RPC UTILS',
+    { jsonResult: true }
+  );
+  const result = parseJsonRpcResult(raw);
+
+  const changes = (result && Array.isArray(result.changes)) ? result.changes : [];
+  const itemErrors = changes
+    .filter((change) => typeof change.status === 'string' && change.status.startsWith('error'))
+    .map((change) => `${change.label || change.field || change.item}: ${change.status}`);
+
+  const topError = result && typeof result === 'object'
+    ? (result.ERROR || (Number(result.errors) > 0 && itemErrors.length === 0 ? `${result.errors} error(s)` : ''))
+    : 'Unexpected response from CDSP UTIL VET SET';
+
+  if (topError || itemErrors.length) {
+    const err = new Error(topError || itemErrors.join('; '));
+    err.status = 422;
+    err.details = result;
+    throw err;
+  }
+
+  return { dfn: String(dfn), cellPhone, result };
+}
+
+// Payload rows run together when the record separator is stripped, so split on the DATE^START^END^ prefix instead.
+function parseOpenSlots(payload) {
+  const body = String(payload || '')
+    .replace(/[\x1e\x1f]/g, '')
+    .replace(/^[\s\S]*?AVAILABILITY/, '');
+
+  const rowRegex = /(\d{7})\^(\d{4})\^(\d{4})\^([\s\S]*?)(?=\d{7}\^\d{4}\^\d{4}\^|$)/g;
+  const byDate = new Map();
+
+  for (const match of body.matchAll(rowRegex)) {
+    const parts = parseFilemanDate(match[1]);
+    if (!parts) continue;
+
+    const date = `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+    const code = match[4].trim();
+    const decoded = decodeAvailabilityCode(code);
+
+    if (!byDate.has(date)) {
+      const weekday = new Date(parts.year, parts.month - 1, parts.day)
+        .toLocaleDateString('en-US', { weekday: 'short' });
+      byDate.set(date, { date, label: weekday, slots: [], openSlots: 0 });
+    }
+    const day = byDate.get(date);
+    // Empty code = time block with no slots; symbols (*, $, !, @, #, A-W) = overbook / outside hours.
+    day.slots.push({
+      start: match[2],
+      end: match[3],
+      code,
+      open: /^[0-9j-z]$/.test(code) ? decoded.slotsAvail : null
+    });
+    day.openSlots += decoded.slotsAvail;
+  }
+
+  return [...byDate.values()];
+}
+
+async function getClinicOpenSlots(clinicIen, startIso, endIso) {
+  const resolved = await getClinicResourceByClinicIen(clinicIen);
+  const resourceIen = String(resolved.resourceIen || clinicIen);
+
+  const raw = await callRpc('SDEC APPSLOTS', [resourceIen, startIso, endIso], 'SDECRPC', { jsonResult: false });
+  const payload = typeof raw === 'string' ? raw : findFirstString(raw) || '';
+  return { resourceIen, days: parseOpenSlots(payload), raw: payload };
+}
+
 export {
   getClinics,
   getDefaultPatients,
   searchPatients,
   getClinicResourceByClinicIen,
-  getClinicAvailability
+  getClinicAvailability,
+  getPatientCellPhone,
+  setPatientCellPhone,
+  getClinicOpenSlots,
+  parseOpenSlots
 };

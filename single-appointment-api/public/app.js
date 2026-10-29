@@ -337,7 +337,119 @@ function selectPatientFromSearch(patient) {
   modal.classList.remove('show');
   
   log(`Selected patient: ${patient.name} (DFN: ${patient.dfn})`);
+  loadCellPhone(patient);
 }
+
+const patientContact = document.getElementById('patient-contact');
+const cellPhoneView = document.getElementById('cell-phone-view');
+const cellPhoneEdit = document.getElementById('cell-phone-edit');
+const cellPhoneText = document.getElementById('cell-phone-text');
+const cellPhoneInput = document.getElementById('cell-phone-input');
+const cellPhoneStatus = document.getElementById('cell-phone-status');
+const cellPhoneEditBtn = document.getElementById('cell-phone-edit-btn');
+const cellPhoneSaveBtn = document.getElementById('cell-phone-save-btn');
+const cellPhoneCancelBtn = document.getElementById('cell-phone-cancel-btn');
+let currentCellPhone = '';
+
+function formatPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return value || '';
+}
+
+function showCellPhoneView() {
+  cellPhoneEdit.classList.add('hidden');
+  cellPhoneView.classList.remove('hidden');
+}
+
+async function loadCellPhone(patient) {
+  showCellPhoneView();
+  cellPhoneStatus.textContent = '';
+  if (!patient || !patient.dfn) {
+    patientContact.classList.add('hidden');
+    return;
+  }
+
+  patientContact.classList.remove('hidden');
+  cellPhoneText.textContent = 'Loading...';
+  cellPhoneEditBtn.disabled = true;
+  const dfn = patient.dfn;
+  try {
+    const response = await fetch(`/api/lookups/patients/${encodeURIComponent(dfn)}/cell-phone`);
+    const body = await response.json();
+    if (!response.ok || !body.success) {
+      throw new Error(body.error || 'Failed to load cell phone');
+    }
+    // Ignore stale responses if the selection changed meanwhile.
+    if (!selectedPatient || selectedPatient.dfn !== dfn) return;
+    currentCellPhone = body.cellPhone || '';
+    cellPhoneText.textContent = currentCellPhone ? formatPhone(currentCellPhone) : 'Not on file';
+  } catch (err) {
+    cellPhoneText.textContent = 'Unavailable';
+    cellPhoneStatus.textContent = err.message;
+    log(`Cell phone load error: ${err.message}`);
+  } finally {
+    cellPhoneEditBtn.disabled = false;
+  }
+}
+
+cellPhoneEditBtn.addEventListener('click', () => {
+  cellPhoneInput.value = currentCellPhone;
+  cellPhoneStatus.textContent = '10 digits. Leave blank to clear.';
+  cellPhoneView.classList.add('hidden');
+  cellPhoneEdit.classList.remove('hidden');
+  cellPhoneInput.focus();
+});
+
+cellPhoneCancelBtn.addEventListener('click', () => {
+  cellPhoneStatus.textContent = '';
+  showCellPhoneView();
+});
+
+async function saveCellPhone() {
+  if (!selectedPatient || !selectedPatient.dfn) return;
+
+  const digits = cellPhoneInput.value.replace(/\D/g, '');
+  if (digits && digits.length !== 10) {
+    cellPhoneStatus.textContent = 'Cell phone must be 10 digits.';
+    return;
+  }
+  if (!digits && currentCellPhone && !confirm('Clear the cell phone number for this patient?')) {
+    return;
+  }
+
+  cellPhoneSaveBtn.disabled = true;
+  cellPhoneStatus.textContent = 'Saving...';
+  try {
+    const response = await fetch(`/api/lookups/patients/${encodeURIComponent(selectedPatient.dfn)}/cell-phone`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cellPhone: digits })
+    });
+    const body = await response.json();
+    if (!response.ok || !body.success) {
+      throw new Error(body.error || 'Failed to save cell phone');
+    }
+    log(`Cell phone updated for DFN ${selectedPatient.dfn}: ${JSON.stringify(body.result)}`);
+    await loadCellPhone(selectedPatient);
+    cellPhoneStatus.textContent = 'Saved.';
+  } catch (err) {
+    cellPhoneStatus.textContent = err.message;
+    log(`Cell phone save error: ${err.message}`);
+  } finally {
+    cellPhoneSaveBtn.disabled = false;
+  }
+}
+
+cellPhoneSaveBtn.addEventListener('click', saveCellPhone);
+cellPhoneInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    saveCellPhone();
+  }
+});
 
 async function loadClinics() {
   refreshClinicsBtn.disabled = true;
@@ -394,6 +506,7 @@ patientSelect.addEventListener('change', () => {
   selectedPatient = selectedOption && selectedOption.dataset.payload
     ? JSON.parse(selectedOption.dataset.payload)
     : null;
+  loadCellPhone(selectedPatient);
 });
 
 clinicSelect.addEventListener('change', async () => {
