@@ -29,6 +29,9 @@ A test harness for consult-linked appointment creation via vista-api-x, with a c
 - **Patient Lookup**: Load default patient lists (ORQPT)
 - **Clinic Selection**: Browse and select clinics with automatic resource IEN resolution
 - **Availability Checking**: View and select available appointment slots
+- **Patient Cell Phone**: View and edit the selected patient's cell phone
+- **Patient Appointments**: Look up a patient's appointments over a date range
+- **Open Slots**: View open slots for the selected clinic over a date range
 - **JWT Debug**: View token claims for troubleshooting
 
 ### Clinic List Management (NEW in v2.0)
@@ -266,7 +269,7 @@ npm run dev
 
 ## UI Workflow
 
-The web UI features two main sections accessible via tabs:
+The web UI has four tabs: Appointments, Patient Appointments, Open Slots, and Clinic Lists.
 
 ### 1. Appointments Tab (Consult-Linked Scheduling)
 
@@ -276,12 +279,13 @@ The appointment creator is intentionally **compact and streamlined** — no raw 
 
 1. **Search for Patient (Optional)** — Enter a partial name (e.g., "HARRIS,SHEB") and click "Search" to find specific patients
 2. **Select Patient** — Choose from search results OR click "Refresh" to load the default patient list
-3. **Select Clinic** — Sorted alphabetically; resource IEN resolved automatically
-4. **Pick Appointment Date** — Calendar picker
-5. **Load Slots** — Fetches from clinic availability
-6. **Select Slot** — Choose available time
-7. **Optional: Enter Consult IEN** — If scheduling from an existing consult
-8. **Click "Run Flow"** — Creates appointment
+3. **Check/Edit Cell Phone** — The patient's cell phone is shown under the selection; click Edit to change it (10 digits, blank clears it)
+4. **Select Clinic** — Sorted alphabetically; resource IEN resolved automatically
+5. **Pick Appointment Date** — Calendar picker
+6. **Load Slots** — Fetches from clinic availability
+7. **Select Slot** — Choose available time
+8. **Optional: Enter Consult IEN** — If scheduling from an existing consult
+9. **Click "Run Flow"** — Creates appointment
 
 #### Automatic Processing
 
@@ -289,7 +293,26 @@ The appointment creator is intentionally **compact and streamlined** — no raw 
 - **Consult IEN blank:** Creates appointment request first, then links appointment (fallback)
 - All payload parameters are auto-built from your selections
 
-### 2. Clinic Lists Tab (List Management)
+### 2. Patient Appointments Tab
+
+Uses `SDES GET APPTS BY PATIENT DFN3`.
+
+1. Select a patient on the Appointments tab
+2. Set start and end dates (default: today + 4 months; changing the months field recalculates the end date)
+3. Click **Load Appointments** to list clinic, status, appointment IEN, created-by, and cancelled-by
+4. Expand **Raw RPC response** to see the unparsed result
+
+### 3. Open Slots Tab
+
+Uses `SDEC APPSLOTS` over a date range for the clinic selected on the Appointments tab.
+
+1. Select a clinic on the Appointments tab
+2. Set start and end dates (default: today + 30 days)
+3. Click **Load Open Slots** to see each day's open total and every slot start time with its open count
+
+Slot codes: `0-9` and `j-z` are open counts (`j`=10 ... `z`=26, `0` = full); letters and symbols (`*`, `$`, `!`, `@`, `#`, `A-W`) are overbooks or outside-hours blocks. Time blocks with an empty code have no slots and are hidden.
+
+### 4. Clinic Lists Tab (List Management)
 
 #### Step-by-Step
 
@@ -349,7 +372,11 @@ Result in VistA:
 | `GET /api/lookups/patients/default` | Load default patient list | — |
 | `GET /api/lookups/patients/search` | Search patients by partial name | `name=<partial_name>` |
 | `GET /api/lookups/clinics/:clinicIen/resource` | Get resource IEN for clinic | — |
-| `GET /api/lookups/clinics/:clinicIen/availability` | Get available slots | `date=YYYY-MM-DD` |
+| `GET /api/lookups/clinics/:clinicIen/availability` | Get available slots for one day | `date=YYYY-MM-DD` |
+| `GET /api/lookups/clinics/:clinicIen/open-slots` | Get slots over a date range | `start=YYYY-MM-DD&end=YYYY-MM-DD` |
+| `GET /api/lookups/patients/:dfn/appointments` | Get a patient's appointments | `start=YYYY-MM-DD&end=YYYY-MM-DD` |
+| `GET /api/lookups/patients/:dfn/cell-phone` | Get a patient's cell phone | — |
+| `PUT /api/lookups/patients/:dfn/cell-phone` | Set a patient's cell phone (blank clears) | Body: `{ cellPhone }` (10 digits) |
 | `GET /api/lookups/jwt-debug` | View parsed JWT claims | — |
 
 ### Appointment Creation (POST)
