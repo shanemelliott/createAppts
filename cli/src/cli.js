@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -15,6 +16,7 @@ const CLI_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 const OPTIONS = {
   help: { type: 'boolean', short: 'h' },
+  version: { type: 'boolean', short: 'V' },
   json: { type: 'boolean' },
   verbose: { type: 'boolean', short: 'v' },
   check: { type: 'boolean' },
@@ -38,6 +40,13 @@ const OPTIONS = {
   to: { type: 'string' },
   months: { type: 'string' },
   'page-size': { type: 'string' },
+  at: { type: 'string' },
+  length: { type: 'string' },
+  appt: { type: 'string' },
+  by: { type: 'string' },
+  'no-reopen': { type: 'boolean' },
+  'reason-ien': { type: 'string' },
+  note: { type: 'string' },
   reason: { type: 'string' },
   'dry-run': { type: 'boolean' }
 };
@@ -48,8 +57,10 @@ Usage:
   appts <scenario> [options]            create test data: regular, osm, osmxgroup, osmancillary
   appts --dfn <dfn> [options]           list a patient's appointments (every status)
   appts availability [options]          show a clinic's availability grid
+  appts cancel --appt <ien> [options]   cancel one appointment by its IEN
   appts cancel-availability [options]   cancel a clinic's availability, day by day
   appts --check                         test the connection
+  appts --version                       print the installed version
   appts --help
 
 Not installed as "appts"? Run: node appt-cli/bin/appt-scenario.js <same arguments>
@@ -93,22 +104,35 @@ Scenario options:
   --block-availability osmxgroup: first cancel availability on the first group clinic for 60 days
   --past-days N        desired date offset (minimum 60 for OSM scenarios)
   --future-days N      appointment offset (minimum 60 for osm, 90 for osmxgroup/osmancillary)
+  --at "DATE@TIME"      regular only: book at this start (site time), e.g. "1/1/2027@9:30", "T+1@14:00", "T@2:30 PM"
+  --length N           regular only: appointment length in minutes (default: the clinic's length)
+
+Dates (--at, --from, --to) accept M/D/YYYY, M/D/YY, T (today), T+N / T-N (days from today) or YYYY-MM-DD,
+in site time. --at also needs a time: H:MM or HH:MM (24-hour), or H:MM AM/PM, after an @.
+
+cancel options (one appointment per run; find the IEN with appts --dfn):
+  --appt IEN        required: the appointment IEN to cancel
+  --by clinic|patient   who cancelled it (default clinic)
+  --no-reopen       close the request instead of reopening it (default: reopened)
+  --reason-ien N    cancellation reason IEN (default: none)
+  --note TEXT       note on the cancellation (default "appts cancel")
+  --dry-run         show what would be sent without connecting
 
 cancel-availability options:
   --clinic     APPT_BLOCK_CLINIC 478
-  --days N     today through today+N (default 60), or --from YYYY-MM-DD --to YYYY-MM-DD
+  --days N     today through today+N (default 60), or --from DATE --to DATE
   --reason     default "testing"
   --dry-run    print the parameters for each day without calling VistA
 
 Patient appointments options (appts --dfn ...):
   --dfn        required here (or APPT_DFN); no random patient
-  --from YYYY-MM-DD    start of the range (default today)
-  --to YYYY-MM-DD      end of the range (default: start plus --months)
+  --from DATE          start of the range (default today)
+  --to DATE            end of the range (default: start plus --months)
   --months N   months after the start (default 4); not with --to
 
 availability options:
   --clinic     APPT_CLINIC 195
-  --days N     today through today+N (default 60), or --from YYYY-MM-DD --to YYYY-MM-DD
+  --days N     today through today+N (default 60), or --from DATE --to DATE
   --page-size N  day rows per page in a terminal (default 10; 0 = never pause)
 
 Exit codes: 0 success, 1 scenario/connection failure, 2 usage or safety error.
@@ -140,9 +164,13 @@ export async function main({
     stdout.write(HELP);
     return 0;
   }
+  if (flags.version) {
+    stdout.write(`appts ${readVersion()}\n`);
+    return 0;
+  }
   let command = flags.check ? 'check' : parsed.positionals[0] || '';
   if (command && command !== 'check' && !COMMANDS.includes(command)) {
-    stderr.write(`Unknown scenario "${command}". Valid scenarios: ${SCENARIOS.join(', ')} (or cancel-availability, availability)\nRun "appts --help" for usage.\n`);
+    stderr.write(`Unknown scenario "${command}". Valid scenarios: ${SCENARIOS.join(', ')} (or cancel, cancel-availability, availability)\nRun "appts --help" for usage.\n`);
     return 2;
   }
 
@@ -174,7 +202,7 @@ export async function main({
     } else {
       settings = validateSettings(resolved, { now });
     }
-    const needsConnection = !(settings.command === 'cancel-availability' && settings.dryRun);
+    const needsConnection = !runsOffline(settings);
     if (needsConnection) assertCredentials(settings);
     if (flags.verbose) log(`settings ${JSON.stringify(maskedSettings(settings))}`);
   } catch (err) {
@@ -189,7 +217,7 @@ export async function main({
 
   let client = null;
   try {
-    if (!(settings.command === 'cancel-availability' && settings.dryRun)) {
+    if (!runsOffline(settings)) {
       client = await connect(settings, log);
     }
     const user = client?.user;
@@ -216,6 +244,19 @@ export async function main({
   } finally {
     if (client) await client.close();
   }
+}
+
+function readVersion() {
+  try {
+    return JSON.parse(readFileSync(path.join(CLI_DIR, 'package.json'), 'utf8')).version || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+// Dry runs that only print what would be sent need no credentials and no connection.
+function runsOffline(settings) {
+  return Boolean(settings.dryRun) && ['cancel-availability', 'regular', 'cancel'].includes(settings.command);
 }
 
 // Human output for `availability`: a title, the grid (paged in a terminal), then the legend.

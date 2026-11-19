@@ -37,7 +37,20 @@ export function renderHuman(envelope) {
   for (const a of envelope.appointments || []) {
     add(`${a.role ? `${a.role}: ` : ''}clinic ${a.clinicIen}${a.clinicName ? ` ${a.clinicName}` : ''}`);
     add(`  request ${a.requestIen} desired ${a.desiredDate}`);
-    add(`  appointment ${a.appointmentIen} on ${a.appointmentDate} ${fmt(a.start)}-${fmt(a.end)}`);
+    add(`  appointment ${a.appointmentIen} on ${a.appointmentDate} ${fmt(a.start)}-${fmt(a.end)}${a.lengthMinutes ? ` (${a.lengthMinutes} min)` : ''}`);
+  }
+
+  if (envelope.command === 'cancel' && envelope.ok) {
+    const what = `appointment ${envelope.appointmentIen} (by ${envelope.cancelType}, request ${envelope.reopened ? 'reopened' : 'closed'})`;
+    add(envelope.dryRun ? `DRY RUN: would cancel ${what}` : `cancelled ${what}`);
+    add(`  reason IEN ${envelope.reasonIen ?? 'none'}, note "${envelope.note}"`);
+  }
+
+  if (envelope.plan) {
+    const p = envelope.plan;
+    add(`DRY RUN: would book in clinic ${p.clinicIen}`);
+    add(`  start ${p.start}${p.end ? ` to ${p.end}` : ''} (site time ${p.tz})`);
+    add(`  length ${p.lengthMinutes}${typeof p.lengthMinutes === 'number' ? ' min' : ''}`);
   }
 
   if (envelope.emptyClinic) add(`No availability verified: clinic ${envelope.emptyClinic.clinicIen} through ${envelope.emptyClinic.through}`);

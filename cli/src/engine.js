@@ -92,6 +92,7 @@ export async function bookAppointment(ctx, { patient, clinic, candidates, desire
         appointmentDate: toIso(slot.day),
         start: slot.start,
         end: slot.end,
+        lengthMinutes: slot.duration,
         slot
       };
     }

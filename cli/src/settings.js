@@ -1,10 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { addMonths, assertTimeZone, compareDays, fromIso, todayIn } from './dates.js';
+import {
+  VISTA_DATE_FORMS, addMonths, assertTimeZone, compareDays, nowHhmm, parseVistaDate, parseVistaDateTime, toIso, todayIn
+} from './dates.js';
 
 export const SCENARIOS = ['regular', 'osm', 'osmxgroup', 'osmancillary'];
 export const QUERY_COMMANDS = ['availability', 'patient-appts'];
-export const COMMANDS = [...SCENARIOS, 'cancel-availability', ...QUERY_COMMANDS];
+export const COMMANDS = [...SCENARIOS, 'cancel-availability', 'cancel', ...QUERY_COMMANDS];
 // Flags that select the patient appointments listing when no command name is given.
 export const LISTING_FLAGS = ['dfn', 'from', 'to', 'months'];
 
@@ -105,6 +107,13 @@ export function resolveSettings({ command, flags = {}, env = {}, fileVars = {} }
     to: flags.to,
     months: flags.months,
     pageSize: flags['page-size'],
+    at: flags.at,
+    length: flags.length,
+    appt: flags.appt,
+    by: flags.by,
+    noReopen: Boolean(flags['no-reopen']),
+    reasonIen: flags['reason-ien'],
+    note: flags.note,
     reason: flags.reason || 'testing',
     dryRun: Boolean(flags['dry-run'])
   };
@@ -139,6 +148,16 @@ function numericId(value, label) {
   return String(value);
 }
 
+// --from/--to take a date only (VistA forms or ISO); a time part is a usage error.
+function dateOption(value, label, today) {
+  if (String(value).includes('@')) throw new UsageError(`${label} takes a date only, without a time (got "${value}"; use ${VISTA_DATE_FORMS})`);
+  try {
+    return parseVistaDate(value, today);
+  } catch (err) {
+    throw new UsageError(`${label}: ${err.message}`);
+  }
+}
+
 // Validates and normalizes settings for the command; throws UsageError before any connection is made.
 export function validateSettings(settings, { now = new Date() } = {}) {
   const s = { ...settings };
@@ -167,8 +186,18 @@ export function validateSettings(settings, { now = new Date() } = {}) {
     if (new Set(s.groupClinics).size < 2) {
       throw new UsageError('osmxgroup needs at least two different clinic IENs in --group-clinics / APPT_GROUP_CLINICS');
     }
-  } else if (command !== 'patient-appts') {
+  } else if (command !== 'patient-appts' && command !== 'cancel') {
     s.clinic = numericId(s.clinic, `${s.clinicVar} / --clinic`);
+  }
+
+  if (command === 'cancel') {
+    if (s.appt === undefined || s.appt === '') throw new UsageError('An appointment IEN is required: pass --appt <ien> (see appts --dfn <dfn>). There is no patient or date-range form.');
+    s.appt = numericId(s.appt, '--appt');
+    s.by = s.by === undefined ? 'clinic' : String(s.by).toLowerCase();
+    if (!['clinic', 'patient'].includes(s.by)) throw new UsageError(`--by must be clinic or patient (got "${s.by}")`);
+    if (s.reasonIen !== undefined) s.reasonIen = numericId(s.reasonIen, '--reason-ien');
+    s.note = s.note === undefined || s.note === '' ? 'appts cancel' : String(s.note);
+    if (/[\r\n]/.test(s.note)) throw new UsageError('--note must be a single line');
   }
 
   if (command === 'osmancillary') {
@@ -181,8 +210,9 @@ export function validateSettings(settings, { now = new Date() } = {}) {
   if (command === 'cancel-availability' || command === 'availability') {
     if ((s.from && !s.to) || (!s.from && s.to)) throw new UsageError('--from and --to must be used together');
     if (s.from) {
-      s.fromDay = fromIso(s.from);
-      s.toDay = fromIso(s.to);
+      const today = todayIn(s.tz, now);
+      s.fromDay = dateOption(s.from, '--from', today);
+      s.toDay = dateOption(s.to, '--to', today);
       if (compareDays(s.toDay, s.fromDay) < 0) throw new UsageError('--to must not be before --from');
       if (s.days !== undefined) throw new UsageError('Use either --days or --from/--to, not both');
     } else {
@@ -194,12 +224,31 @@ export function validateSettings(settings, { now = new Date() } = {}) {
     s.pageSize = s.pageSize === undefined ? 10 : positiveInt(s.pageSize, '--page-size');
   }
 
+  if (s.at !== undefined || s.length !== undefined) {
+    if (command !== 'regular') throw new UsageError('--at and --length are only supported by the regular scenario');
+  }
+  if (s.at !== undefined) {
+    let parsed;
+    try {
+      parsed = parseVistaDateTime(s.at, todayIn(s.tz, now));
+    } catch (err) {
+      throw new UsageError(`--at: ${err.message}`);
+    }
+    const stamp = (day, hhmm) => toIso(day) + hhmm;
+    if (stamp(parsed.day, parsed.hhmm) <= stamp(todayIn(s.tz, now), nowHhmm(s.tz, now))) {
+      throw new UsageError(`--at "${s.at}" is not in the future (site time ${s.tz})`);
+    }
+    s.atDay = parsed.day;
+    s.atHhmm = parsed.hhmm;
+  }
+  if (s.length !== undefined) s.length = positiveInt(s.length, '--length', 1);
+
   if (command === 'patient-appts') {
     if (!s.dfn) throw new UsageError('A patient is required: pass --dfn or set APPT_DFN.');
     if (s.to && s.months !== undefined) throw new UsageError('Use either --to or --months, not both');
     s.months = s.months === undefined ? 4 : positiveInt(s.months, '--months', 1);
-    s.fromDay = s.from ? fromIso(s.from) : todayIn(s.tz, now);
-    s.toDay = s.to ? fromIso(s.to) : addMonths(s.fromDay, s.months);
+    s.fromDay = s.from ? dateOption(s.from, '--from', todayIn(s.tz, now)) : todayIn(s.tz, now);
+    s.toDay = s.to ? dateOption(s.to, '--to', todayIn(s.tz, now)) : addMonths(s.fromDay, s.months);
     if (compareDays(s.toDay, s.fromDay) < 0) throw new UsageError('--to must not be before --from (the start defaults to today)');
   }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -117,6 +117,106 @@ test('cancel-availability --dry-run needs no credentials or connection', async (
   assert.equal(r.code, 0);
   assert.equal(r.connected, 0);
   assert.match(r.stdout, /DRY RUN/);
+});
+
+test('regular --at/--length: dry run needs no credentials or connection', async () => {
+  const r = await run(['regular', '--dry-run', '--at', 'T+3@2:30 PM', '--length', '45'], { env: {} });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.connected, 0);
+  assert.match(r.stdout, /DRY RUN: would book in clinic 195/);
+  assert.match(r.stdout, /start 2026-11-20 14:30 to 15:15 \(site time America\/New_York\)/);
+  assert.match(r.stdout, /length 45 min/);
+
+  const json = await run(['regular', '--dry-run', '--at', 'T+3@2:30 PM', '--json'], { env: {} });
+  const out = JSON.parse(json.stdout);
+  assert.deepEqual(out.plan, { clinicIen: '195', start: '2026-11-20 14:30', lengthMinutes: 'clinic default', tz: 'America/New_York' });
+  assert.equal(json.connected, 0);
+});
+
+test('regular --at/--length: bad values fail before connecting; other scenarios reject them', async () => {
+  for (const argv of [['regular', '--at', '1/1/2027'], ['regular', '--at', 'T-1@9:00'], ['regular', '--length', '0'], ['osm', '--length', '30']]) {
+    const r = await run(argv);
+    assert.equal(r.code, 2, argv.join(' '));
+    assert.equal(r.connected, 0, argv.join(' '));
+  }
+});
+
+test('regular --at/--length: JSON and human output show start, end and length', async () => {
+  const rpc = fakeVista({
+    slots: { 1195: Array.from({ length: 8 }, (_, i) => ({ iso: isoPlus(3), start: `${String(8 + Math.floor(i / 4)).padStart(2, '0')}${String((i % 4) * 15).padStart(2, '0')}`, end: `${String(8 + Math.floor((i + 1) / 4)).padStart(2, '0')}${String(((i + 1) % 4) * 15).padStart(2, '0')}` })) },
+    clinicInfo: { 195: { Clinic: { LengthOfAppointment: '30' } } }
+  });
+  const r = await run(['regular', '--at', 'T+3@8:30', '--length', '30', '--json'], { rpc });
+  assert.equal(r.code, 0, r.stderr);
+  const a = JSON.parse(r.stdout).appointments[0];
+  assert.deepEqual([a.appointmentDate, a.start, a.end, a.lengthMinutes], ['2026-11-20', '0830', '0900', 30]);
+
+  const rpc2 = fakeVista({ slots: { 1195: [{ iso: isoPlus(1), start: '0900', end: '0930' }] } });
+  const human = await run(['regular'], { rpc: rpc2 });
+  assert.match(human.stdout, /appointment 7001 on 2026-11-18 09:00-09:30 \(30 min\)/);
+});
+
+test('cancel: default call, human and JSON output', async () => {
+  const rpc = fakeVista();
+  const r = await run(['cancel', '--appt', '65491'], { rpc });
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout, /cancelled appointment 65491 \(by clinic, request reopened\)/);
+  assert.match(r.stdout, /reason IEN none, note "appts cancel"/);
+  assert.deepEqual(rpc.named('SDEC APPDEL')[0].params, ['65491', 'C', '', 'appts cancel', '', '520', '', '1']);
+
+  const json = await run(['cancel', '--appt', '65491', '--by', 'patient', '--no-reopen', '--reason-ien', '5', '--note', 'cleanup', '--json']);
+  const out = JSON.parse(json.stdout);
+  assert.equal(out.ok, true);
+  assert.deepEqual(
+    [out.appointmentIen, out.cancelType, out.reopened, out.reasonIen, out.note],
+    ['65491', 'patient', false, '5', 'cleanup']
+  );
+});
+
+test('cancel: --dry-run needs no credentials or connection', async () => {
+  const r = await run(['cancel', '--appt', '65491', '--dry-run'], { env: {} });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.connected, 0);
+  assert.match(r.stdout, /DRY RUN: would cancel appointment 65491 \(by clinic, request reopened\)/);
+});
+
+test('cancel: VistA refusing exits 1 with the text and no success line', async () => {
+  const r = await run(['cancel', '--appt', '99999999'], { rpc: fakeVista({ appdel: () => 'SDEC08: Invalid Appointment ID' }) });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /FAILED: Could not cancel appointment 99999999: SDEC08: Invalid Appointment ID/);
+  assert.doesNotMatch(r.stdout + r.stderr, /cancelled appointment/);
+});
+
+test('cancel: bad input and the bulk forms fail before connecting', async () => {
+  const bad = [
+    ['cancel'], ['cancel', '--appt', 'abc'], ['cancel', '--appt', ''],
+    ['cancel', '--dfn', '100126'], ['cancel', '--from', 'T', '--to', 'T+7'], ['cancel', '--months', '2'],
+    ['cancel', '--appt', '1', '--by', 'nurse'], ['cancel', '--appt', '1', '--reason-ien', 'x'], ['cancel', '--appt', '1', '--note', 'a\nb']
+  ];
+  for (const argv of bad) {
+    const r = await run(argv);
+    assert.equal(r.code, 2, argv.join(' '));
+    assert.equal(r.connected, 0, argv.join(' '));
+  }
+  assert.match((await run(['cancel', '--dfn', '1'])).stderr, /--appt/);
+  assert.match((await run(['cancel', '--appt', '1', '--by', 'nurse'])).stderr, /clinic or patient/);
+});
+
+test('cancel: production is blocked before connecting', async () => {
+  const r = await run(['cancel', '--appt', '65491', '--env', 'prod']);
+  assert.equal(r.code, 2);
+  assert.equal(r.connected, 0);
+});
+
+test('--version and -V print the package version without connecting or needing credentials', async () => {
+  const expected = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+  for (const flag of ['--version', '-V']) {
+    const r = await run([flag], { env: {} });
+    assert.equal(r.code, 0);
+    assert.equal(r.stdout, `appts ${expected}\n`);
+    assert.equal(r.connected, 0);
+  }
+  assert.match((await run(['--help'])).stdout, /appts --version/);
 });
 
 test('bin entry point runs under node', () => {

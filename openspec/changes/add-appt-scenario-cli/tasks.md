@@ -36,8 +36,8 @@
 
 - [x] 6.1 Implement `regular`. Verify with a fake-RPC test (desired date = today, linked `A|<ien>`) and one real dev run. Document it in the README.
 - [x] 6.2 Implement `osm` with minimum checks on `--past-days`/`--future-days`. Verify with fake-RPC tests for the date offsets and rejection of values under 60, and one real dev run. Document it in the README.
-- [ ] 6.3 Implement `cancel-availability` (per-day `SDES CANCEL CLIN AVAILABILITY`, tz-aware offsets, `--days`/`--from`/`--to`, `--dry-run`, continue past per-day failures). Verify with fake-RPC tests for parameter format across a DST boundary, dry run making no calls, and partial failure exiting non-zero, and with one real dev run against clinic 478. Document it in the README.
-- [ ] 6.4 Implement `osmxgroup`, including `--block-availability`. Verify with fake-RPC tests for the qualifying group, the non-qualifying group (no write RPCs called), block-then-book, still having slots after blocking, and fewer than two clinics, and with one real dev run. Document it in the README.
+- [x] 6.3 Implement `cancel-availability` (per-day `SDES CANCEL CLIN AVAILABILITY`, tz-aware offsets, `--days`/`--from`/`--to`, `--dry-run`, continue past per-day failures). Verify with fake-RPC tests for parameter format across a DST boundary, dry run making no calls, and partial failure exiting non-zero, and with one real dev run against clinic 478. Document it in the README.
+- [x] 6.4 Implement `osmxgroup`, including `--block-availability`. Verify with fake-RPC tests for the qualifying group, the non-qualifying group (no write RPCs called), block-then-book, still having slots after blocking, and fewer than two clinics, and with one real dev run. Document it in the README.
 - [x] 6.5 Implement `osmancillary`. Verify with fake-RPC tests for the same-day non-overlapping pair, one ordinary request+appointment per clinic, MRTC = `NO` and no parent link on either, no common day, and the same clinic given twice, and one real dev run. Document it in the README.
 - [x] 6.6 Implement human and `--json` output with exit codes. Verify that a test asserts stdout is one parseable JSON object and that failures exit non-zero.
 
@@ -50,7 +50,7 @@
 - [x] 7.5 Document the build, upload (`https://downloads.example.com/files/appt-cli/latest/`), short links (`https://downloads.example.com/appt-cli`, `https://downloads.example.com/appt-cli-sh`), and both one-liners in `cli/README.md`. Verify that the documented commands match `install/*` and the design.
 - [x] 7.7 Add the opt-in `appts` launcher to both installers (Linux `~/.local/bin`; Windows `~\.local\bin` or WindowsApps, whichever is on PATH), asked after the credentials, with `APPT_CLI_LAUNCHER`/`APPT_CLI_BIN_DIR`, refresh-on-upgrade, and no overwrite of foreign files. Verify with installer tests on sh, PowerShell 7 and 5.1 (opt-in, runs the CLI, refresh, foreign file, default-folder choice and PATH hint) and a real-Linux pty run; document it in `cli/README.md`.
 - [x] 7.8 Fall back to the user's home folder when the current directory is not writable (found when `iwr ... | iex` was run from `C:\Windows\System32`: "Access to the path '.appt-cli-install-...' is denied"), in both installers, with the next-step command showing the real path and a clear error when nothing is writable. Verified with installer tests (PowerShell via a deny ACL; sh via chmod) and a real-Linux run as a non-root user.
-- [ ] 7.6 Upload the build output and create the two downloads.example.com short links (done by the user). Verify by running the Windows one-liner in a fresh folder and then `node appt-cli\bin\appt-scenario.js --check`.
+- [x] 7.6 Upload the build output and create the two downloads.example.com short links (done by the user). Verify by running the Windows one-liner in a fresh folder and then `node appt-cli\bin\appt-scenario.js --check`.
 
 ## 8. Portability verification
 

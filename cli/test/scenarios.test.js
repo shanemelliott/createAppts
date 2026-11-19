@@ -60,6 +60,113 @@ describe('regular', () => {
   });
 });
 
+// 15-minute open rows from `from` to `to` (HHMM) on a day.
+function rows(iso, from, to) {
+  const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(2));
+  const hhmm = (m) => String(Math.floor(m / 60)).padStart(2, '0') + String(m % 60).padStart(2, '0');
+  const out = [];
+  for (let m = toMin(from); m < toMin(to); m += 15) out.push(slot(iso, hhmm(m), hhmm(m + 15)));
+  return out;
+}
+const len30 = { 195: { Clinic: { LengthOfAppointment: '30' } } };
+
+describe('regular --at and --length', () => {
+  test('--at books exactly that start at the clinic length', async () => {
+    const rpc = fakeVista({ slots: { 1195: [...rows(isoPlus(1), '0800', '1000'), ...rows(isoPlus(3), '0800', '1200')] }, clinicInfo: len30 });
+    const result = await runCommand(makeCtx('regular', { rpc, flags: { at: `${isoPlus(3)}@9:00` } }));
+    const [appt] = result.appointments;
+    assert.deepEqual([appt.appointmentDate, appt.start, appt.end, appt.lengthMinutes], [isoPlus(3), '0900', '0930', 30]);
+    assert.equal(rpc.named('SDEC ARSET').length, 1);
+    assert.equal(rpc.named('SDEC APPADD').length, 1);
+  });
+
+  test('--at with --length books that length from that start', async () => {
+    const rpc = fakeVista({ slots: { 1195: rows(isoPlus(3), '0800', '1200') }, clinicInfo: len30 });
+    const result = await runCommand(makeCtx('regular', { rpc, flags: { at: 'T+3@9:15', length: '45' } }));
+    const [appt] = result.appointments;
+    assert.deepEqual([appt.start, appt.end, appt.lengthMinutes], ['0915', '1000', 45]);
+    assert.equal(rpc.named('SDEC APPADD')[0].params[4], '45');
+  });
+
+  test('--length alone books the earliest start that fits it', async () => {
+    const rpc = fakeVista({ slots: { 1195: [...rows(isoPlus(1), '0800', '0830'), ...rows(isoPlus(2), '0800', '0900')] }, clinicInfo: len30 });
+    const result = await runCommand(makeCtx('regular', { rpc, flags: { length: '45' } }));
+    const [appt] = result.appointments;
+    assert.deepEqual([appt.appointmentDate, appt.start, appt.end], [isoPlus(2), '0800', '0845']);
+  });
+
+  test('a time that is not open writes nothing and lists the nearest open starts', async () => {
+    const rpc = fakeVista({ slots: { 1195: [...rows(isoPlus(3), '0800', '0900'), ...rows(isoPlus(3), '1000', '1200')] }, clinicInfo: len30 });
+    await assert.rejects(
+      runCommand(makeCtx('regular', { rpc, flags: { at: `${isoPlus(3)}@9:30` } })),
+      (err) => {
+        assert.match(err.message, /is not open in clinic 195 for 30 minutes\. Nearest open starts for 30 minutes: /);
+        const starts = err.message.match(/\d{4}-\d\d-\d\d \d\d:\d\d/g).slice(1);
+        assert.equal(starts.length, 5);
+        assert.ok(starts.includes(`${isoPlus(3)} 08:30`) && starts.includes(`${isoPlus(3)} 10:00`));
+        return true;
+      }
+    );
+    assert.equal(rpc.named('SDEC ARSET').length, 0);
+    assert.equal(rpc.named('SDEC APPADD').length, 0);
+  });
+
+  test('a length that no open run can hold is reported without writes', async () => {
+    const rpc = fakeVista({ slots: { 1195: rows(isoPlus(3), '0800', '0900') }, clinicInfo: len30 });
+    await assert.rejects(
+      runCommand(makeCtx('regular', { rpc, flags: { at: `${isoPlus(3)}@8:00`, length: '120' } })),
+      /not open in clinic 195 for 120 minutes\. No open starts for 120 minutes/
+    );
+    assert.equal(rpc.named('SDEC ARSET').length, 0);
+
+    const rpc2 = fakeVista({ slots: { 1195: rows(isoPlus(3), '0800', '0900') }, clinicInfo: len30 });
+    await assert.rejects(runCommand(makeCtx('regular', { rpc: rpc2, flags: { length: '120' } })), /No open slot in clinic 195/);
+    assert.equal(rpc2.named('SDEC ARSET').length, 0);
+  });
+
+  test('--dry-run makes no calls and reports the plan', async () => {
+    const rpc = fakeVista();
+    const result = await runCommand(makeCtx('regular', { rpc, flags: { 'dry-run': true, at: 'T+3@9:00', length: '45' } }));
+    assert.equal(rpc.calls.length, 0);
+    assert.deepEqual(result.plan, { clinicIen: '195', start: `${isoPlus(3)} 09:00`, end: '09:45', lengthMinutes: 45, tz: 'America/New_York' });
+
+    const plain = await runCommand(makeCtx('regular', { rpc, flags: { 'dry-run': true } }));
+    assert.deepEqual(plain.plan, { clinicIen: '195', start: 'next open slot', end: undefined, lengthMinutes: 'clinic default', tz: 'America/New_York' });
+    assert.equal(rpc.calls.length, 0);
+  });
+});
+
+describe('cancel (one appointment)', () => {
+  const cancel = (flags, rpc = fakeVista()) => runCommand(makeCtx('cancel', { rpc, flags }));
+
+  test('default: cancelled by the clinic, request reopened, no reason, default note', async () => {
+    const rpc = fakeVista();
+    const result = await cancel({ appt: '65491' }, rpc);
+    assert.deepEqual(result, { appointmentIen: '65491', cancelType: 'clinic', reopened: true, reasonIen: null, note: 'appts cancel' });
+    assert.deepEqual(rpc.named('SDEC APPDEL').map((c) => c.params), [['65491', 'C', '', 'appts cancel', '', '520', '', '1']]);
+    assert.equal(rpc.calls.length, 1);
+  });
+
+  test('--by patient, --no-reopen, --reason-ien and --note change the call', async () => {
+    const rpc = fakeVista();
+    const result = await cancel({ appt: '65491', by: 'patient', 'no-reopen': true, 'reason-ien': '5', note: 'test data cleanup' }, rpc);
+    assert.deepEqual(result, { appointmentIen: '65491', cancelType: 'patient', reopened: false, reasonIen: '5', note: 'test data cleanup' });
+    assert.deepEqual(rpc.named('SDEC APPDEL')[0].params, ['65491', 'PC', '5', 'test data cleanup', '', '520', '', '2']);
+  });
+
+  test('--dry-run makes no calls', async () => {
+    const rpc = fakeVista();
+    const result = await cancel({ appt: '65491', 'dry-run': true }, rpc);
+    assert.equal(result.dryRun, true);
+    assert.equal(rpc.calls.length, 0);
+  });
+
+  test('a VistA error is thrown with its text', async () => {
+    const rpc = fakeVista({ appdel: () => 'SDEC08: Invalid Appointment ID' });
+    await assert.rejects(cancel({ appt: '99999999' }, rpc), /Could not cancel appointment 99999999: SDEC08: Invalid Appointment ID/);
+  });
+});
+
 describe('osm', () => {
   test('desired date 60 days back, appointment 60+ days out', async () => {
     const rpc = fakeVista({ slots: { 1195: [slot(isoPlus(59)), slot(isoPlus(60))] } });

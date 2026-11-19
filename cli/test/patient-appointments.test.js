@@ -121,7 +121,9 @@ describe('patient appointments: dates and settings', () => {
     assert.throws(() => resolve({ from: '2026-09-01' }), /patient is required/);
     assert.throws(() => resolve({ dfn: '1', from: '2026-09-30', to: '2026-09-01' }), /before/);
     assert.throws(() => resolve({ dfn: '1', to: '2026-01-01' }), /before/);
-    assert.throws(() => resolve({ dfn: '1', from: '09/01/2026' }), /Invalid date/);
+    assert.throws(() => resolve({ dfn: '1', from: 'Sept 1 2026' }), /Invalid date/);
+    assert.throws(() => resolve({ dfn: '1', from: '2/30/2027' }), /Invalid date/);
+    assert.throws(() => resolve({ dfn: '1', from: 'T@9:30' }), /date only/);
     assert.throws(() => resolve({ dfn: '1', months: '0' }), /--months/);
     assert.throws(() => resolve({ dfn: '1', to: '2027-01-01', months: '2' }), /either --to or --months/);
   });

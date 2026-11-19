@@ -283,3 +283,21 @@ describe('availability: command line', () => {
     assert.equal(headers(r.stdout), 1);
   });
 });
+
+
+test('availability --from T --to T+30 queries the expected days', async () => {
+  const rpc = fakeVista({ slots: { 1195: devDays(0, 3) } });
+  const r = await run(['availability', '--from', 'T', '--to', 'T+30', '--json'], { rpc });
+  assert.equal(r.code, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.from, '2026-11-17');
+  assert.equal(out.to, '2026-12-17');
+  assert.deepEqual(rpc.named('SDEC APPSLOTS').map((c) => c.params), [['1195', '2026-11-17', '2026-12-17']]);
+});
+
+test('a time part in --from fails before connecting', async () => {
+  const r = await run(['availability', '--from', 'T@9:30', '--to', 'T+1']);
+  assert.equal(r.code, 2);
+  assert.equal(r.connected, 0);
+  assert.match(r.stderr, /--from takes a date only/);
+});

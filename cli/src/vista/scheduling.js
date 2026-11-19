@@ -220,15 +220,17 @@ export function parseAppaddResponse(raw) {
 
 // ---------- Cleanup (SDEC APPDEL / SDEC ARCLOSE) ----------
 
-export function buildAppdelParams(appointmentId, duz) {
-  // SDF=2 (position 8): do not reopen; the request is closed as REMOVED/EXTERNAL APP.
-  return [String(appointmentId), 'C', '', 'appt-scenario cleanup', '', String(duz), '', '2'];
+export function buildAppdelParams(appointmentId, duz, { type = 'C', reasonIen = '', note = 'appt-scenario cleanup', reopen = false } = {}) {
+  // Position 8 (SDF): 1 reopens the request, 2 closes it as REMOVED/EXTERNAL APP. Clean-up defaults to 2.
+  return [String(appointmentId), type, String(reasonIen), note, '', String(duz), '', reopen ? '1' : '2'];
 }
 
+// Success is an empty reply (header only); an error is a row whose first column is the message, e.g. "SDEC08: Invalid Appointment ID".
 export function parseAppdelResponse(raw) {
   const [first, text] = firstDataRow(raw);
-  const failed = (text && text.trim()) || String(first || '').startsWith('-');
-  return failed ? { ok: false, error: text || first } : { ok: true };
+  const firstText = String(first ?? '').trim();
+  const failed = Boolean(text && text.trim()) || (firstText !== '' && firstText !== '0');
+  return failed ? { ok: false, error: (text && text.trim()) || firstText } : { ok: true };
 }
 
 export function buildArcloseParams(requestIen, dispositionIen, duz) {

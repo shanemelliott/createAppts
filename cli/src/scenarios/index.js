@@ -2,6 +2,7 @@ import { Ledger } from '../engine.js';
 import availability from '../queries/availability.js';
 import patientAppointments from '../queries/patientAppointments.js';
 import cancelAvailability from './cancelAvailability.js';
+import cancelAppointment from './cancelAppointment.js';
 import osmancillary from './osmancillary.js';
 import osmxgroup from './osmxgroup.js';
 import singleClinic from './singleClinic.js';
@@ -12,6 +13,7 @@ const HANDLERS = {
   osmxgroup,
   osmancillary,
   'cancel-availability': cancelAvailability,
+  cancel: cancelAppointment,
   availability,
   'patient-appts': patientAppointments
 };

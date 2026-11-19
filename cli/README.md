@@ -113,9 +113,33 @@ Every scenario looks up open slots **before** creating anything, books with over
 ### regular
 
 ```bash
-appts regular [--clinic 195] [--dfn 100677]
+appts regular [--clinic 195] [--dfn 100677] [--at "T+1@9:30"] [--length 45] [--dry-run]
 ```
 One request (desired date = today) and one linked appointment at the next open slot after now.
+
+`--at "<date>@<time>"` books at that start instead (site time), and `--length N` sets the appointment length in minutes instead of the clinic's own. Both are checked against the clinic's open slots before anything is created: if the whole span is not open, nothing is written, the exit code is 1, and the output lists the five nearest open starts for that length. With `--length` alone, the earliest start that fits is booked. These two options are for `regular` only.
+
+```bash
+appts regular --at "1/1/2027@9:30"           # a specific day and time
+appts regular --at "T+1@2:30 PM" --length 45  # tomorrow at 14:30 for 45 minutes
+appts regular --length 60                     # next start with a free hour
+appts regular --at "T+3@9:00" --dry-run       # show what would be booked; no connection
+```
+
+`--dry-run` needs no credentials. It prints the clinic, start, and length; the end time appears only with `--length` because the clinic's own length is read from VistA.
+
+#### Dates and times
+
+The same date forms work for `--at`, `--from` and `--to`, always in site time (`APPT_TZ`, not the host's clock):
+
+| Date | Meaning |
+|---|---|
+| `1/1/2027`, `1/1/27` | month/day/year (two-digit years are 20YY) |
+| `T` | today |
+| `T+1`, `T+30`, `T-1` | days from today |
+| `2027-01-01` | ISO date |
+
+`--at` also needs a time after an `@`: 24-hour `9:30` or `14:00`, or 12-hour `9:30 AM` / `2:30 PM`. `--from` and `--to` take a date only. Impossible values (`2/30/2027`, `@25:00`) and `--at` times that are not in the future are rejected before connecting. Full FileMan input such as `NOW`, `T@NOON`, or `JAN 1 2027` is not supported.
 
 ### osm
 
@@ -138,10 +162,28 @@ appts osmancillary [--clinic 532] [--ancillary-clinic 521]
 ```
 Two independent request+appointment pairs for the same patient on the same day, 90+ days out, at non-overlapping times; desired date 60+ days in the past. Nothing in VistA links them: the primary/ancillary pairing is configured in VEText OSM. If the ancillary booking fails, the primary is rolled back.
 
+## cancel
+
+```bash
+appts cancel --appt 65491                       # cancelled by the clinic, request reopened
+appts cancel --appt 65491 --by patient          # recorded as cancelled by the patient
+appts cancel --appt 65491 --no-reopen           # close the request instead of reopening it
+appts cancel --appt 65491 --reason-ien 5 --note "test data cleanup"
+appts cancel --appt 65491 --dry-run             # show what would be sent; no connection or credentials
+appts cancel --appt 65491 --json
+```
+
+Cancels exactly one appointment by its appointment IEN (the IEN column of `appts --dfn <dfn>`) with `SDEC APPDEL`. There is deliberately no patient, clinic, or date-range form, and no confirmation prompt: check the IEN first (or use `--dry-run`). Dev and sqa only, with the same production checks as every command that connects.
+
+- **Who cancelled:** the clinic by default; `--by patient` records a patient cancellation (`CANCELLED BY PATIENT` in the listing).
+- **Request:** reopened by default (SDF `1`), so it goes back to the pending list; `--no-reopen` (SDF `2`) closes it as removed by an external application. The CLI cannot read a request's status, so confirm the reopened request in VistA when it matters.
+- **Reason and note:** no reason is sent unless `--reason-ien N` is given (an IEN from the site's cancellation-reason file); `--note` defaults to `appts cancel` and must be a single line.
+- **Output and exit codes:** one line on success (`--json`: `appointmentIen`, `cancelType`, `reopened`, `reasonIen`, `note`). If VistA rejects it, for example `SDEC08: Invalid Appointment ID` for an unknown IEN, the message is printed and the exit code is 1. VistA accepts cancelling an appointment that is already cancelled, so that run reports success and changes nothing.
+
 ## cancel-availability
 
 ```bash
-appts cancel-availability [--clinic 478] [--days 60 | --from 2026-12-01 --to 2026-12-31] [--reason testing] [--dry-run]
+appts cancel-availability [--clinic 478] [--days 60 | --from 12/1/2026 --to T+30] [--reason testing] [--dry-run]
 ```
 Ported from `single-appointment-api/cancel-november-availability.js`: one `SDES CANCEL CLIN AVAILABILITY` call per day covering 00:00-21:00 site time, with the UTC offset computed per date (handles DST). Continues past failed days, lists them, and exits non-zero if any failed. `--dry-run` prints each day's parameters without connecting (no credentials needed). Availability is not restored by this tool.
 
@@ -151,6 +193,7 @@ Ported from `single-appointment-api/cancel-november-availability.js`: one `SDES 
 appts --dfn 100791                     # today through 4 months, every status, newest first
 appts --dfn 100791 --months 2
 appts --dfn 100791 --from 2026-09-01 --to 2026-09-30
+appts --dfn 100791 --from 9/1/2026 --to T+10   # VistA dates work too (see Dates and times)
 appts --dfn 100791 --json
 appts                                  # with APPT_DFN set (env var or .env), lists that patient
 ```
@@ -173,6 +216,7 @@ Cancelled and no-show appointments are included; the status text is VistA's. `--
 appts availability                              # clinic 195, today through 60 days
 appts availability --clinic 478 --days 90
 appts availability --clinic 485 --from 2027-01-01 --to 2027-03-31
+appts availability --from T --to T+30        # VistA dates work too (see Dates and times)
 appts availability --page-size 20               # rows per page in a terminal (0 = no pausing)
 appts availability --json
 ```
@@ -238,7 +282,7 @@ Upload all six files to `https://downloads.example.com/files/appt-cli/latest/` (
 | `https://downloads.example.com/appt-cli` | `.../files/appt-cli/latest/install.ps1` |
 | `https://downloads.example.com/appt-cli-sh` | `.../files/appt-cli/latest/install.sh` |
 
-`install.sh` must keep LF line endings (the build script and `.gitattributes` take care of this). Bump `version` in `cli/package.json` before building; the installer prints it.
+`install.sh` must keep LF line endings (the build script and `.gitattributes` take care of this). Bump `version` in `cli/package.json` before building; the installer prints it, and `appts --version` (or `-V`) shows the installed version so you can tell which release a machine has.
 
 ## Tests
 

@@ -117,3 +117,61 @@ test('masked settings never expose codes', () => {
   assert.ok(!masked.includes('SECRETVC'));
   assert.ok(masked.includes('****'));
 });
+
+
+const NOW_NY = new Date('2026-11-17T15:04:00Z'); // 2026-11-17 10:04 in New York
+const regular = (flags = {}, command = 'regular') => validateSettings(resolveSettings({ command, flags, env: creds }), { now: NOW_NY });
+const day = (d) => `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
+
+test('--at accepts VistA and ISO forms and resolves T in site time', () => {
+  let s = regular({ at: '1/1/2027@9:30' });
+  assert.deepEqual([day(s.atDay), s.atHhmm], ['2027-01-01', '0930']);
+  s = regular({ at: 'T+1@14:00' });
+  assert.deepEqual([day(s.atDay), s.atHhmm], ['2026-11-18', '1400']);
+  s = regular({ at: 'T@2:30 PM' });
+  assert.deepEqual([day(s.atDay), s.atHhmm], ['2026-11-17', '1430']);
+  s = regular({ at: '2027-01-01@09:30' });
+  assert.deepEqual([day(s.atDay), s.atHhmm], ['2027-01-01', '0930']);
+  // 03:30 UTC on Nov 18 is still Nov 17 evening in New York.
+  const late = validateSettings(resolveSettings({ command: 'regular', flags: { at: 'T@23:00' }, env: creds }), { now: new Date('2026-11-18T03:30:00Z') });
+  assert.equal(day(late.atDay), '2026-11-17');
+});
+
+test('--at rejects bad, past and unsupported uses before connecting', () => {
+  assert.throws(() => regular({ at: '1/1/2027' }), /--at: .*<date>@<time>/);
+  assert.throws(() => regular({ at: '@9:30' }), /--at/);
+  assert.throws(() => regular({ at: '2/30/2027@9:30' }), /--at: Invalid date/);
+  assert.throws(() => regular({ at: '1/1/2027@25:00' }), /--at: Invalid time/);
+  assert.throws(() => regular({ at: 'T@9:30' }), /not in the future/); // 10:04 now
+  assert.throws(() => regular({ at: 'T@10:04' }), /not in the future/);
+  assert.throws(() => regular({ at: 'T-1@9:30' }), /not in the future/);
+  assert.throws(() => regular({ at: '1/1/2027@9:30' }, 'osm'), /only supported by the regular scenario/);
+  assert.throws(() => regular({ length: '30' }, 'osmxgroup'), /only supported by the regular scenario/);
+});
+
+test('--length must be a positive whole number', () => {
+  assert.equal(regular({ length: '45' }).length, 45);
+  for (const bad of ['0', '-5', '1.5', 'abc', '']) {
+    if (bad === '') continue; // an empty value is treated as not given by the CLI parser
+    assert.throws(() => regular({ length: bad }), /--length/, bad);
+  }
+});
+
+test('without --at or --length, regular settings are unchanged', () => {
+  const s = regular();
+  assert.equal(s.at, undefined);
+  assert.equal(s.length, undefined);
+  assert.equal(s.atDay, undefined);
+});
+
+test('--from/--to take VistA dates, ISO dates, and no time part', () => {
+  let s = regular({ clinic: '195', from: 'T', to: 'T+30' }, 'availability');
+  assert.deepEqual([day(s.fromDay), day(s.toDay)], ['2026-11-17', '2026-12-17']);
+  s = regular({ clinic: '195', from: '12/1/2026', to: '12/31/26' }, 'cancel-availability');
+  assert.deepEqual([day(s.fromDay), day(s.toDay)], ['2026-12-01', '2026-12-31']);
+  s = regular({ clinic: '195', from: '2026-12-01', to: '2026-12-31' }, 'availability');
+  assert.deepEqual([day(s.fromDay), day(s.toDay)], ['2026-12-01', '2026-12-31']);
+  assert.throws(() => regular({ clinic: '195', from: 'T@9:30', to: 'T+1' }, 'availability'), /--from takes a date only/);
+  assert.throws(() => regular({ clinic: '195', from: 'T+5', to: 'T' }, 'availability'), /--to must not be before --from/);
+  assert.throws(() => regular({ clinic: '195', from: 'nonsense', to: 'T' }, 'cancel-availability'), /--from: Invalid date/);
+});

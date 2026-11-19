@@ -98,6 +98,64 @@ export function fromIso(text) {
   return day;
 }
 
+export const VISTA_DATE_FORMS = 'M/D/YYYY, M/D/YY, T, T+N, T-N or YYYY-MM-DD';
+export const VISTA_TIME_FORMS = 'H:MM or HH:MM (24-hour), or H:MM AM/PM';
+
+function validDay(year, month, day, text) {
+  const d = { year, month, day };
+  const check = new Date(Date.UTC(year, month - 1, day));
+  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) {
+    throw new Error(`Invalid date "${text}"`);
+  }
+  return d;
+}
+
+// VistA-style date: 1/1/2027, 1/1/27, T, T+1, T-1, or ISO. `today` is the site-local day.
+export function parseVistaDate(text, today) {
+  const raw = String(text ?? '').trim();
+  let m = /^T(?:([+-])(\d+))?$/i.exec(raw);
+  if (m) return addDays(today, m[1] ? (m[1] === '-' ? -1 : 1) * Number(m[2]) : 0);
+  m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (m) return validDay(Number(m[1]), Number(m[2]), Number(m[3]), raw);
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})$/.exec(raw);
+  if (m) {
+    const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    return validDay(year, Number(m[1]), Number(m[2]), raw);
+  }
+  throw new Error(`Invalid date "${raw}" (expected ${VISTA_DATE_FORMS})`);
+}
+
+// Returns HHMM. 24-hour, or 12-hour with an AM/PM suffix.
+export function parseVistaTime(text) {
+  const raw = String(text ?? '').trim();
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i.exec(raw);
+  if (!m) throw new Error(`Invalid time "${raw}" (expected ${VISTA_TIME_FORMS})`);
+  let hour = Number(m[1]);
+  const minute = Number(m[2]);
+  const suffix = m[3] && m[3].toUpperCase();
+  if (minute > 59) throw new Error(`Invalid time "${raw}" (minutes must be 00-59)`);
+  if (suffix) {
+    if (hour < 1 || hour > 12) throw new Error(`Invalid time "${raw}" (12-hour times run 1-12)`);
+    hour = (hour % 12) + (suffix === 'PM' ? 12 : 0);
+  } else if (hour > 23) {
+    throw new Error(`Invalid time "${raw}" (hours must be 0-23)`);
+  }
+  return pad(hour) + pad(minute);
+}
+
+// `<date>@<time>`; both parts are required.
+export function parseVistaDateTime(text, today) {
+  const raw = String(text ?? '').trim();
+  const at = raw.indexOf('@');
+  if (at < 0 || !raw.slice(0, at).trim() || !raw.slice(at + 1).trim()) {
+    throw new Error(`Invalid date/time "${raw}" (expected <date>@<time>, e.g. 1/1/2027@9:30 or T+1@14:00)`);
+  }
+  return {
+    day: parseVistaDate(raw.slice(0, at), today),
+    hhmm: parseVistaTime(raw.slice(at + 1))
+  };
+}
+
 export function fromFileman(fm) {
   const m = /^(\d{3})(\d{2})(\d{2})/.exec(String(fm || ''));
   if (!m) return null;

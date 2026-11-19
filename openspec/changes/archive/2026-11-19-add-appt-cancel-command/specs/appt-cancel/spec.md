@@ -70,7 +70,7 @@ The tool SHALL send no cancellation reason unless `--reason-ien N` is given (a n
 - **THEN** the tool prints what it would send, calls no RPC, and exits zero
 
 ### Requirement: Failure handling and output
-If VistA rejects the cancellation (for example an unknown appointment or one that is already cancelled), the tool SHALL print VistA's error text and exit non-zero without reporting success. A successful run SHALL print a human-readable line by default, and with `--json` SHALL print exactly one JSON object containing the appointment IEN, cancel type, whether the request was reopened, the reason IEN, and the note.
+If VistA rejects the cancellation (for example an unknown appointment IEN), the tool SHALL print VistA's error text and exit non-zero without reporting success. Cancelling an appointment that is already cancelled is accepted by VistA and SHALL be reported as success. A successful run SHALL print a human-readable line by default, and with `--json` SHALL print exactly one JSON object containing the appointment IEN, cancel type, whether the request was reopened, the reason IEN, and the note.
 
 #### Scenario: VistA refuses
 - **WHEN** VistA returns an error for the appointment IEN

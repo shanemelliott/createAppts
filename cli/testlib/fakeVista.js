@@ -27,6 +27,7 @@ export function fakeVista({
   ],
   slots = {},
   appadd = () => null,
+  appdel = () => null,
   cancelFails = () => false,
   cancelRemovesSlots = true,
   clinicInfo = {},
@@ -71,8 +72,10 @@ export function fakeVista({
           nextAppt += 1;
           return `I00020APPOINTMENTID^T00030ERRORID${RS}${nextAppt}^${RS}${US}`;
         }
-        case 'SDEC APPDEL':
-          return `I00020ERRORID^T00030ERRORTEXT${RS}0^${RS}${US}`;
+        case 'SDEC APPDEL': {
+          const error = appdel(params);
+          return error ? `T00020ERRORID${RS}${error}${RS}${US}` : `T00020ERRORID${RS}${RS}${US}`;
+        }
         case 'SDEC ARCLOSE':
           return String(params[0]);
         case 'SDES CANCEL CLIN AVAILABILITY': {
@@ -95,7 +98,7 @@ export function makeCtx(command, { flags = {}, env = {}, rpc, random = () => 0 }
     command,
     flags,
     env: { VISTA_ACCESS_CODE: 'ac', VISTA_VERIFY_CODE: 'vc', ...env }
-  }));
+  }), { now: NOW });
   return { rpc, settings, user: { duz: '520', name: 'TESTER,ONE', division: 'CAMP MASTER' }, now: NOW, random, log: () => {} };
 }
 

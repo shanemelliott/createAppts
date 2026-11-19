@@ -66,6 +66,14 @@ test('cancel availability parameters mirror the legacy script with tz-aware offs
   );
 });
 
+test('buildAppdelParams keeps the clean-up defaults and takes cancel options', () => {
+  assert.deepEqual(buildAppdelParams('65491', '520'), ['65491', 'C', '', 'appt-scenario cleanup', '', '520', '', '2']);
+  assert.deepEqual(
+    buildAppdelParams('65491', '520', { type: 'PC', reasonIen: '5', note: 'n', reopen: true }),
+    ['65491', 'PC', '5', 'n', '', '520', '', '1']
+  );
+});
+
 test('response parsers', () => {
   assert.equal(parseArsetResponse(`I00020ERRORID^T00030ERRORTEXT${RS}9001^${RS}${US}`), '9001');
   assert.throws(() => parseArsetResponse(`I00020ERRORID^T00030ERRORTEXT${RS}-1^Invalid Patient ID${RS}${US}`), /Invalid Patient ID/);
@@ -73,6 +81,9 @@ test('response parsers', () => {
   assert.deepEqual(parseAppaddResponse(`I00020APPOINTMENTID^T00030ERRORID${RS}0^NO OPEN SLOTS${RS}${US}`), { ok: false, error: 'NO OPEN SLOTS' });
   assert.equal(parseAppdelResponse(`I00020ERRORID^T00030ERRORTEXT${RS}0^${RS}${US}`).ok, true);
   assert.equal(parseAppdelResponse(`I00020ERRORID^T00030ERRORTEXT${RS}-1^Already cancelled${RS}${US}`).ok, false);
+  // Replies captured from dev: success has no row; an error is one row holding the message.
+  assert.deepEqual(parseAppdelResponse(`T00020ERRORID${RS}${RS}${US}`), { ok: true });
+  assert.deepEqual(parseAppdelResponse(`T00020ERRORID${RS}SDEC08: Invalid Appointment ID${RS}${US}`), { ok: false, error: 'SDEC08: Invalid Appointment ID' });
   assert.equal(parseArcloseResponse('9001').ok, true);
   assert.deepEqual(parseArcloseResponse('-1^Request already closed'), { ok: false, error: 'Request already closed' });
   assert.equal(parseCancelAvailabilityResponse('{"Success":true}').ok, true);
