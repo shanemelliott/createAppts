@@ -31,7 +31,7 @@ test('parseEnvFile handles comments, blanks, quotes and inline comments', () => 
 test('defaults only: connection and environment', () => {
   const s = validateSettings(resolveSettings({ command: 'regular', env: creds }));
   assert.equal(s.environment, 'sqa');
-  assert.equal(s.host, 'vista.example.com');
+  assert.equal(s.host, '');
   assert.equal(s.port, 9094);
   assert.equal(s.context, 'CDSP RPC CONTEXT');
   assert.equal(s.station, '500');

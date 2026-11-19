@@ -76,7 +76,10 @@ before(async () => {
   if (skipAll) return;
   scratch = mkdtempSync(path.join(os.tmpdir(), 'appt-install-'));
   dist = path.join(scratch, 'dist');
-  const build = await run(PWSH, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', buildScript, '-OutDir', dist]);
+  // A throwaway config keeps the real deployment values out of the tests and out of the result.
+  const releaseConfig = path.join(scratch, 'release.json');
+  writeFileSync(releaseConfig, JSON.stringify({ baseUrl: 'https://downloads.example.com/appt-cli/latest', vistaHost: 'vista.example.com' }));
+  const build = await run(PWSH, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', buildScript, '-OutDir', dist], { env: { APPT_CLI_RELEASE_CONFIG: releaseConfig } });
   assert.equal(build.code, 0, build.out);
 
   const badSha = path.join(scratch, 'dist-bad-sha');
@@ -269,6 +272,31 @@ suite('install.ps1 (PowerShell 7 / current)', (dir, env) => ps(PWSH)(dir, env), 
 suite('install.ps1 (Windows PowerShell 5.1)', (dir, env) => ps('powershell')(dir, env), { skip: skipPs || (!WINPS && 'Windows PowerShell not available'), posixModes: false, windowsAcl: true, stubKind: 'cmd', launcher: launcherCmd });
 
 describe('installer extras', () => {
+  test('the repository installers have no download URL; the build stamps one in', { skip: skipAll }, async () => {
+    for (const name of ['install.sh', 'install.ps1']) {
+      const source = readFileSync(path.join(cliDir, 'install', name), 'utf8');
+      assert.doesNotMatch(source, /\.va\.gov|downloads\.example\.com/, `${name} must not carry a real URL`);
+      const built = readFileSync(path.join(dist, name), 'utf8');
+      assert.ok(built.includes('https://downloads.example.com/appt-cli/latest'), `${name} gets the configured URL`);
+    }
+    const sample = spawnSync('tar', ['-xzOf', path.join(dist, 'appt-cli.tar.gz'), './.env.sample'], { encoding: 'utf8' }).stdout;
+    assert.match(sample, /^VISTA_HOST=vista\.example\.com$/m);
+    assert.match(readFileSync(path.join(cliDir, '.env.sample'), 'utf8'), /^VISTA_HOST=$/m, 'the committed sample has no host');
+  });
+
+  test('without a download location the installers stop and say whom to ask', { skip: skipSh, timeout: 120000 }, async () => {
+    const { dir } = workDir();
+    const sh = await run('sh', [fwd(path.join(cliDir, 'install', 'install.sh'))], { cwd: dir, env: { APPT_CLI_BASE_URL: '' } });
+    assert.notEqual(sh.code, 0);
+    assert.match(sh.out, /No download location.*APPT_CLI_BASE_URL.*shane\.elliott@va\.gov/);
+    assert.deepEqual(readdirSync(dir), []);
+    if (PWSH) {
+      const ps = await run(PWSH, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(cliDir, 'install', 'install.ps1')], { cwd: dir, env: { APPT_CLI_BASE_URL: '' } });
+      assert.notEqual(ps.code, 0);
+      assert.match(ps.out, /No download location/);
+    }
+  });
+
   test('install.sh has valid sh syntax', { skip: skipSh }, async () => {
     const r = await run('sh', ['-n', fwd(path.join(cliDir, 'install', 'install.sh'))]);
     assert.equal(r.code, 0, r.out);

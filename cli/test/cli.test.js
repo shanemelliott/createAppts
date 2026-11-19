@@ -11,7 +11,7 @@ import { NOW, fakeVista, isoPlus } from '../testlib/fakeVista.js';
 const dir = mkdtempSync(path.join(os.tmpdir(), 'appt-cli-'));
 const emptyEnv = path.join(dir, 'empty.env');
 writeFileSync(emptyEnv, '');
-const creds = { VISTA_ACCESS_CODE: 'SECRET-AC-123', VISTA_VERIFY_CODE: 'SECRET-VC-456' };
+const creds = { VISTA_HOST: 'vista.example.com', VISTA_ACCESS_CODE: 'SECRET-AC-123', VISTA_VERIFY_CODE: 'SECRET-VC-456' };
 
 function sink() {
   let text = '';
@@ -62,6 +62,18 @@ test('missing credentials are named and nothing connects', async () => {
   assert.equal(r.code, 2);
   assert.match(r.stderr, /VISTA_ACCESS_CODE, VISTA_VERIFY_CODE/);
   assert.equal(r.connected, 0);
+});
+
+test('a missing VISTA_HOST is named before connecting; offline dry runs do not need it', async () => {
+  const noHost = { VISTA_ACCESS_CODE: 'ac', VISTA_VERIFY_CODE: 'vc' };
+  const r = await run(['regular'], { env: noHost });
+  assert.equal(r.code, 2);
+  assert.equal(r.connected, 0);
+  assert.match(r.stderr, /VISTA_HOST/);
+  assert.equal((await run(['--check'], { env: noHost })).code, 2);
+  assert.equal((await run(['regular', '--dry-run'], { env: {} })).code, 0);
+  assert.equal((await run(['regular'], { env: { ...noHost, VISTA_HOST: 'vista.example.com' } })).code, 1); // reaches the fake broker (no slots)
+  assert.equal((await run(['--host', 'vista.example.com', '--check'], { env: noHost })).code, 0);
 });
 
 test('osmxgroup with fewer than two clinics exits before connecting', async () => {

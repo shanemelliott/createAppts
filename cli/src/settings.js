@@ -12,7 +12,7 @@ export const LISTING_FLAGS = ['dfn', 'from', 'to', 'months'];
 
 export const DEFAULTS = {
   APPT_ENV: 'sqa',
-  VISTA_HOST: 'vista.example.com',
+  VISTA_HOST: '',
   VISTA_PORT: '9094',
   VISTA_CONTEXT: 'CDSP RPC CONTEXT',
   VISTA_STATION: '500',
@@ -130,6 +130,7 @@ export function assertAllowedEnvironment(environment) {
 
 export function assertCredentials(settings) {
   const missing = [];
+  if (!settings.host) missing.push('VISTA_HOST');
   if (!settings.accessCode) missing.push('VISTA_ACCESS_CODE');
   if (!settings.verifyCode) missing.push('VISTA_VERIFY_CODE');
   if (missing.length) {

@@ -1,11 +1,11 @@
 # appt-scenario installer for Windows.
-#   iwr -useb https://downloads.example.com/appt-cli | iex
+#   iwr -useb <install-url> | iex      (ask shane.elliott@va.gov for the install URL)
 # Installs into .\appt-cli (no admin rights, no PATH changes). Re-running upgrades and keeps .env.
 # Optionally adds an 'appts' command (appts.cmd in a user folder that is already on PATH:
 # %USERPROFILE%\.local\bin, else %LOCALAPPDATA%\Microsoft\WindowsApps).
 #
 # Environment overrides:
-#   APPT_CLI_BASE_URL   download folder (default https://downloads.example.com/files/appt-cli/latest)
+#   APPT_CLI_BASE_URL   download folder (the release build fills in a default; a plain checkout has none)
 #   VISTA_ACCESS_CODE / VISTA_VERIFY_CODE   write .env without prompting
 #   APPT_CLI_NO_PROMPT  never prompt
 #   APPT_CLI_LAUNCHER   1 = create the 'appts' command, 0 = skip it (default: ask)
@@ -17,7 +17,10 @@
 function Invoke-ApptCliInstall {
     $ErrorActionPreference = 'Stop'
 
-    $baseUrl = if ($env:APPT_CLI_BASE_URL) { $env:APPT_CLI_BASE_URL.TrimEnd('/') } else { 'https://downloads.example.com/files/appt-cli/latest' }
+    # Filled in by scripts/build-package.ps1 from cli/release.local.json (never committed).
+    $defaultBaseUrl = ''
+    $baseUrl = if ($env:APPT_CLI_BASE_URL) { $env:APPT_CLI_BASE_URL.TrimEnd('/') } else { $defaultBaseUrl.TrimEnd('/') }
+    if (-not $baseUrl) { throw "No download location. Set APPT_CLI_BASE_URL, or ask shane.elliott@va.gov for the install command." }
     $nodeBin = if ($env:APPT_CLI_NODE) { $env:APPT_CLI_NODE } else { 'node' }
     $pkg = 'appt-cli.zip'
     $here = (Get-Location).Path

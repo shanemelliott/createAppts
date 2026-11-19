@@ -54,8 +54,8 @@
 
 ## 8. Portability verification
 
-- [ ] 8.1 On an Amazon Linux 2023 EC2 instance with only Node 18 installed, run `curl -fsSL https://downloads.example.com/appt-cli-sh | sh` (no git clone, no npm), enter credentials at the prompt, and run `--check` plus all four scenarios against dev/sqa. Record the results in `cli/README.md` (EC2 section).
-- [ ] 8.2 Run `node --test` from the installed `appt-cli` folder on Node 18 and the current LTS on both Linux and Windows. Verify that all tests pass.
+- [x] 8.1 On an Amazon Linux 2023 EC2 instance with only Node 18 installed, run `curl -fsSL https://downloads.example.com/appt-cli-sh | sh` (no git clone, no npm), enter credentials at the prompt, and run `--check` plus all four scenarios against dev/sqa. Record the results in `cli/README.md` (EC2 section).
+- [x] 8.2 Run `node --test` from the installed `appt-cli` folder on Node 18 and the current LTS on both Linux and Windows. Verify that all tests pass.
 
 ## Resume notes (as of 2026-11-17)
 

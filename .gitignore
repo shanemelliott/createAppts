@@ -11,6 +11,7 @@
 *.userprefs
 *.txt
 cli/dist/
+cli/release.local.json
 env.js
 config.js
 test.js

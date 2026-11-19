@@ -1,11 +1,11 @@
 #!/bin/sh
 # appt-scenario installer for Linux/macOS.
-#   curl -fsSL https://downloads.example.com/appt-cli-sh | sh
+#   curl -fsSL <install-url> | sh      (ask shane.elliott@va.gov for the install URL)
 # Installs into ./appt-cli (no sudo, no PATH changes). Re-running upgrades and keeps .env.
 # Optionally adds an 'appts' command (a small launcher script in ~/.local/bin).
 #
 # Environment overrides:
-#   APPT_CLI_BASE_URL   download folder (default https://downloads.example.com/files/appt-cli/latest)
+#   APPT_CLI_BASE_URL   download folder (the release build fills in a default; a plain checkout has none)
 #   VISTA_ACCESS_CODE / VISTA_VERIFY_CODE   write .env without prompting
 #   APPT_CLI_NO_PROMPT  never prompt
 #   APPT_CLI_LAUNCHER   1 = create the 'appts' command, 0 = skip it (default: ask)
@@ -13,7 +13,9 @@
 #   APPT_CLI_NODE       node executable to check (default: node)
 set -eu
 
-BASE_URL="${APPT_CLI_BASE_URL:-https://downloads.example.com/files/appt-cli/latest}"
+# Filled in by scripts/build-package.ps1 from cli/release.local.json (never committed).
+DEFAULT_BASE_URL=""
+BASE_URL="${APPT_CLI_BASE_URL:-$DEFAULT_BASE_URL}"
 BASE_URL="${BASE_URL%/}"
 NODE_BIN="${APPT_CLI_NODE:-node}"
 PKG="appt-cli.tar.gz"
@@ -23,6 +25,8 @@ TMP=""
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+[ -n "$BASE_URL" ] || die "No download location. Set APPT_CLI_BASE_URL, or ask shane.elliott@va.gov for the install command."
 
 cleanup() {
   if [ -n "$TMP" ]; then rm -rf "$TMP"; fi

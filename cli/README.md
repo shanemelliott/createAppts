@@ -6,18 +6,20 @@ Portable command-line tool that creates VistA appointment test scenarios in **de
 
 You need Node.js 18.3 or later. Nothing else: no `npm install`, no admin rights, no PATH edits. The installer puts the program in `./appt-cli` in the current folder, and can add a short `appts` command (see below).
 
+The download location is not published in this repository. **Contact shane.elliott@va.gov for the install command.** It is a one-liner:
+
 **Windows (PowerShell)**
 
 ```powershell
 cd $HOME          # optional: install into your home folder
-iwr -useb https://downloads.example.com/appt-cli | iex
+iwr -useb <install-url> | iex
 ```
 
 **Linux (including an EC2 console)**
 
 ```bash
 cd ~              # optional: install into your home folder
-curl -fsSL https://downloads.example.com/appt-cli-sh | sh
+curl -fsSL <install-url> | sh
 ```
 
 The `cd` is optional. The installer uses the folder you are in, so run it from wherever you want `appt-cli` to live. If that folder is not writable (an elevated PowerShell opens in `C:\Windows\System32`, for example), it says so and installs into your home folder automatically; it never fails just because of the starting folder.
@@ -44,7 +46,7 @@ Installer options (environment variables):
 
 | Variable | Effect |
 |---|---|
-| `APPT_CLI_BASE_URL` | Download folder instead of `https://downloads.example.com/files/appt-cli/latest` |
+| `APPT_CLI_BASE_URL` | Download folder; the release build fills in a default, a plain checkout has none |
 | `VISTA_ACCESS_CODE` / `VISTA_VERIFY_CODE` | Write `.env` with these values without prompting |
 | `APPT_CLI_NO_PROMPT` | Never prompt; create `.env` without codes and no launcher (unless `APPT_CLI_LAUNCHER=1`) |
 | `APPT_CLI_LAUNCHER` | `1` = create the `appts` command without asking, `0` = skip it |
@@ -71,7 +73,7 @@ Precedence: **command-line flag > environment variable > `.env` file > built-in 
 | Setting | Flag | Env var | Default |
 |---|---|---|---|
 | Environment | `--env` | `APPT_ENV` | `sqa` (only `dev`/`sqa`; prod always blocked) |
-| Broker host / port | `--host` / `--port` | `VISTA_HOST` / `VISTA_PORT` | `vista.example.com` / `9094` |
+| Broker host / port | `--host` / `--port` | `VISTA_HOST` / `VISTA_PORT` | none (required) / `9094` |
 | RPC context | `--context` | `VISTA_CONTEXT` | `CDSP RPC CONTEXT` |
 | Station | `--station` | `VISTA_STATION` | `500` |
 | Access / verify codes | env or `.env` only | `VISTA_ACCESS_CODE` / `VISTA_VERIFY_CODE` | required |
@@ -258,11 +260,13 @@ Human-readable output is tagged with the environment (`[SQA] ...`). `--json` pri
 
 ```bash
 sudo dnf install -y nodejs          # Node 18+ is the only prerequisite
-curl -fsSL https://downloads.example.com/appt-cli-sh | sh
+curl -fsSL <install-url> | sh
 node appt-cli/bin/appt-scenario.js --check
 ```
 
-The EC2 instance must be able to reach `downloads.example.com` (for the install) and, for the tool itself, allow outbound TCP to `VISTA_HOST:VISTA_PORT`. EC2 runs in UTC; all scenario dates are computed in `APPT_TZ`, so they match the site calendar.
+The EC2 instance must be able to reach the download location (for the install) and, for the tool itself, allow outbound TCP to `VISTA_HOST:VISTA_PORT`. EC2 runs in UTC; all scenario dates are computed in `APPT_TZ`, so they match the site calendar.
+
+If `dnf` or `curl` reports a certificate error (`self signed certificate in certificate chain`), the machine is behind TLS inspection and is missing a root certificate: ask your network or platform team for the root CA bundle, install it into the system trust store, and retry. If Node.js is already installed (for example from another repository), check `node -v` before trying to install it again.
 
 ## Releasing a new version
 
@@ -275,12 +279,15 @@ pwsh scripts/build-package.ps1        # or: powershell -File scripts/build-packa
 
 This writes `cli/dist/` (git-ignored) with `appt-cli.zip`, `appt-cli.tar.gz`, a `.sha256` file for each, `install.ps1`, and `install.sh`. The packages contain the program, docs, tests, and `.env.sample`; never your `.env`.
 
-Upload all six files to `https://downloads.example.com/files/appt-cli/latest/` (replace the previous ones; keep the `.sha256` files next to the packages). The short links point at the installers and rarely change:
+Upload all six files to the download folder that `baseUrl` in `cli/release.local.json` points at (replace the previous ones; keep the `.sha256` files next to the packages), and keep the short links pointing at `install.ps1` and `install.sh` in that folder.
 
-| Short link | Target |
-|---|---|
-| `https://downloads.example.com/appt-cli` | `.../files/appt-cli/latest/install.ps1` |
-| `https://downloads.example.com/appt-cli-sh` | `.../files/appt-cli/latest/install.sh` |
+**Deployment details stay out of this repository.** The download URL and the VistA host are read at build time from `cli/release.local.json`, which is git-ignored:
+
+```json
+{ "baseUrl": "https://downloads.example.com/appt-cli/latest", "vistaHost": "vista.example.com" }
+```
+
+The build writes `baseUrl` into the `cli/dist` copies of `install.sh` and `install.ps1` as their default download folder, and `vistaHost` into the packaged `.env.sample`. Without that file the installers have no default URL (they stop and say to ask for it) and `.env.sample` has an empty `VISTA_HOST`. Set `APPT_CLI_RELEASE_CONFIG` to use a config file somewhere else.
 
 `install.sh` must keep LF line endings (the build script and `.gitattributes` take care of this). Bump `version` in `cli/package.json` before building; the installer prints it, and `appts --version` (or `-V`) shows the installed version so you can tell which release a machine has.
 

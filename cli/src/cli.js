@@ -83,7 +83,7 @@ Commands:
 
 Common options (flag / env var / default):
   --env        APPT_ENV          sqa   (only dev or sqa; prod is always blocked)
-  --host       VISTA_HOST        vista.example.com
+  --host       VISTA_HOST        (required; the VistA RPC Broker host)
   --port       VISTA_PORT        9094
   --context    VISTA_CONTEXT     CDSP RPC CONTEXT
   --station    VISTA_STATION     500

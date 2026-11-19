@@ -12,7 +12,7 @@ import { NOW, fakeVista, rawAppt } from '../testlib/fakeVista.js';
 const dir = mkdtempSync(path.join(os.tmpdir(), 'appt-queries-'));
 const emptyEnv = path.join(dir, 'empty.env');
 writeFileSync(emptyEnv, '');
-const creds = { VISTA_ACCESS_CODE: 'ac', VISTA_VERIFY_CODE: 'vc' };
+const creds = { VISTA_HOST: 'vista.example.com', VISTA_ACCESS_CODE: 'ac', VISTA_VERIFY_CODE: 'vc' };
 
 function sink(isTTY) {
   let text = '';

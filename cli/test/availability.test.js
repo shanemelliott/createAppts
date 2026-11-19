@@ -13,7 +13,7 @@ import { NOW, fakeVista, isoPlus } from '../testlib/fakeVista.js';
 const dir = mkdtempSync(path.join(os.tmpdir(), 'appt-avail-'));
 const emptyEnv = path.join(dir, 'empty.env');
 writeFileSync(emptyEnv, '');
-const creds = { VISTA_ACCESS_CODE: 'ac', VISTA_VERIFY_CODE: 'vc' };
+const creds = { VISTA_HOST: 'vista.example.com', VISTA_ACCESS_CODE: 'ac', VISTA_VERIFY_CODE: 'vc' };
 
 const hhmm = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}${String(minutes % 60).padStart(2, '0')}`;
 
