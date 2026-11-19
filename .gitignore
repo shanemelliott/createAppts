@@ -10,6 +10,7 @@
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 *.txt
+cli/dist/
 env.js
 config.js
 test.js
@@ -29,6 +30,7 @@ x64/
 x86/
 bld/
 [Bb]in/
+!cli/bin/
 [Oo]bj/
 [Ll]og/
 reference/

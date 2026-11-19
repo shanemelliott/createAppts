@@ -1,0 +1,17 @@
+{
+  "name": "appt-scenario",
+  "version": "0.1.0",
+  "description": "Portable CLI that creates VistA appointment test scenarios (regular, OSM, OSM cross-group, OSM ancillary).",
+  "type": "module",
+  "bin": {
+    "appt-scenario": "bin/appt-scenario.js"
+  },
+  "engines": {
+    "node": ">=18.3"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

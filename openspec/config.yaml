@@ -1,0 +1,48 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+
+context: |
+  Domain: VA VistA scheduling (VSE/SDES/SDEC RPCs) test-data tooling. Creates appointment
+  requests (SDEC ARSET) and appointments (SDEC APPADD) in non-production VistA environments.
+  Tech stack: Node.js (ESM preferred for new code). Package manager: pnpm.
+  Repo layout:
+    - single-appointment-api/: Express web app using vista-api-x REST + Windows .NET STS token exe (PIV).
+    - bulk-appointments/: CommonJS script using direct RPC Broker TCP (VistaJS/VistaJSLibrary).
+    - reference/: notes, RPC parameter samples (reference/brunoRequest Samples.md), prior tools.
+    - cli/: portable command-line tools (new).
+  Portability rules for cli/: must run headless on Linux (Amazon Linux 2023 EC2 console) and
+  Windows; Node 18+ only; zero npm runtime dependencies; no native modules, no .NET, no PIV.
+  Safety: never target production VistA; only sqa and dev environments are allowed.
+  Secrets (access/verify codes) come from env vars or a .env file and must never be logged.
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
